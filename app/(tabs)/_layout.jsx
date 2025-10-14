@@ -55,6 +55,21 @@ const TabsLayout = () => {
           }}
         />
         <Tabs.Screen
+          name="vehicle"
+          options={{
+            title: "Phương tiện",
+            headerShown: false,
+            tabBarIcon: ({ color, focused }) => (
+              <TabIcon
+                iconName={focused ? "car" : "car-outline"}
+                color={color}
+                name="Vehicle"
+                focused={focused}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="create"
           options={{
             title: "Tạo Mới",

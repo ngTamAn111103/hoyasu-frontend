@@ -1,9 +1,11 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import React, { useEffect, useState } from "react";
 import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constant/color";
+import { useAuth } from "../../context/AuthContext"; // Import useAuth
+
 
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]); // State để lưu danh sách chuyến đi
@@ -32,6 +34,10 @@ const HomeScreen = () => {
 
     fetchTrips();
   }, []);
+  const { signOut } = useAuth(); // Lấy hàm signOut từ context
+  const handleLogout = async () => {
+    await signOut();
+  };
 
   // Tọa độ giả lập, sau này sẽ thay bằng vị trí thực của người dùng
   const initialRegion = {
@@ -91,6 +97,12 @@ const HomeScreen = () => {
         <View style={styles.handleBar} />
         <Text style={styles.panelTitle}>Chuyến đi gần đây</Text>
         <Text style={{ color: COLORS.textLight }}>Vuốt lên để xem thêm</Text>
+        <TouchableOpacity
+        onPress={handleLogout}
+        style={{ backgroundColor: 'red', padding: 15, borderRadius: 10 }}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold' }}>Đăng Xuất</Text>
+      </TouchableOpacity>
       </View>
     </View>
   );
