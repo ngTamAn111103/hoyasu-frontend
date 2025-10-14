@@ -55,8 +55,22 @@ const HomeScreen = () => {
             key={trip.id}
             coordinate={trip.start_coords}
             title={trip.name}
-            pinColor={COLORS.primary} // Dùng màu chủ đạo cho marker
-          />
+            // anchor giúp định vị icon đúng vào tọa độ
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            {/* Đặt component icon của bạn vào đây */}
+            <View
+              style={{
+                backgroundColor: COLORS.background,
+                padding: 8,
+                borderRadius: 20,
+                borderWidth: 2,
+                borderColor: COLORS.primary,
+              }}
+            >
+              <Ionicons name="car-sport" size={24} color={COLORS.primary} />
+            </View>
+          </Marker>
         ))}
       </MapView>
 
