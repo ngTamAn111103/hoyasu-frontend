@@ -4,8 +4,7 @@ import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constant/color";
-import { useAuth } from "../../context/AuthContext"; // Import useAuth
-
+import { useAuth } from "../../context/AuthContext"; 
 
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]); // State để lưu danh sách chuyến đi
