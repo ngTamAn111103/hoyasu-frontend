@@ -12,7 +12,7 @@ import {
 import { getMyVehicles } from "../../services/VehicleService";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router"; // <-- Thêm import này
+import { useRouter } from "expo-router";
 
 const VehicleListScreen = () => {
   // State để lưu danh sách xe
@@ -104,7 +104,7 @@ const VehicleListScreen = () => {
       />
 
       <TouchableOpacity
-        onPress={() => router.push("/add-vehicle")} // <-- Chuyển hướng đến trang mới
+        onPress={() => router.push("/AddVehicleScreen")} // <-- Chuyển hướng đến trang mới
         className="absolute bottom-6 right-6 h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg"
       >
         <Text className="pb-1 text-4xl text-white">+</Text>
