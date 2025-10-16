@@ -47,26 +47,29 @@ const VehicleListScreen = () => {
 
   // Hàm render cho mỗi item trong FlatList
   const renderVehicle = ({ item }) => (
-    <View className="mx-4 my-2 flex-row rounded-lg border border-border bg-background p-5">
-      <Image
-        source={{ uri: item.vehicle_avatar.image }}
-        className="mr-4 h-24 w-24 rounded-full"
-      />
-      <View className="ml-4 flex-1">
-        {/* Thay thế cho style: itemName */}
-        <Text className="mt-2 text-lg font-bold text-textLight">
-          {item.name}
-        </Text>
-
-        {/* Thay thế cho style: itemDetails */}
-        <Text className="mt-1 text-sm text-gray-600">
-          Biển số: {item.license_plate}
-        </Text>
-        <Text className="mt-1 text-sm text-gray-600">
-          ODO: {item.odometer} km
-        </Text>
+    <TouchableOpacity
+      onPress={() => router.push(`/vehicle/${item.id}`)} // <-- Dòng quan trọng nhất!
+    >
+      <View className="mx-4 my-2 flex-row rounded-lg border border-border bg-background p-5">
+        <Image
+          source={{ uri: item.vehicle_avatar.image }}
+          className="mr-4 h-24 w-24 rounded-full"
+        />
+        <View className="ml-4 flex-1">
+          {/* Thay thế cho style: itemName */}
+          <Text className="mt-2 text-lg font-bold text-textLight">
+            {item.name}
+          </Text>
+          {/* Thay thế cho style: itemDetails */}
+          <Text className="mt-1 text-sm text-gray-600">
+            Biển số: {item.license_plate}
+          </Text>
+          <Text className="mt-1 text-sm text-gray-600">
+            ODO: {item.odometer} km
+          </Text>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Hiển thị trạng thái đang tải

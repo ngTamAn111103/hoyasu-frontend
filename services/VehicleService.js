@@ -75,6 +75,36 @@ export const getMyVehicles = async () => {
 };
 
 /**
+ * Lấy thông tin chi tiết của một chiếc xe cụ thể.
+ * @param {number} id - ID của xe cần lấy.
+ * @returns {Promise<object|null>} Dữ liệu chi tiết của xe nếu thành công.
+ */
+export const getVehicleDetails = async (id) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    if (!token) return null;
+
+    // URL sẽ có dạng: http://.../api/vehicles/5/
+    const response = await fetch(`${VEHICLES_URL}${id}/`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Lỗi khi lấy chi tiết xe.");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Lỗi trong hàm getVehicleDetails:", error);
+    return null;
+  }
+};
+
+/**
  * Hàm gọi API để tạo một phương tiện mới.
  * @param {object} vehicleData - Dữ liệu của xe cần tạo.
  * @returns {Promise<object|null>} Dữ liệu xe đã tạo nếu thành công, ngược lại trả về null.
