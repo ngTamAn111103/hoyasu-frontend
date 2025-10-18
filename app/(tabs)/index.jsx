@@ -1,4 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  FlatList,
+  Image,
+} from "react-native";
 import React, {
   useEffect,
   useState,
@@ -14,26 +22,27 @@ import { useAuth } from "../../context/AuthContext";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import { getMyVehicles } from "../../services/VehicleService"; // <-- Import dịch vụ xe
 
 const HomeScreen = () => {
-  const [trips, setTrips] = useState([]); // State để lưu danh sách chuyến đi
-  // variables
-  const snapPoints = useMemo(() => ['25%', '50%', '75%'], []);
-  // ref
-  const bottomSheetRef = useRef < BottomSheet > null;
+  const [trips, setTrips] = useState([]);
+  const [vehicles, setVehicles] = useState([]); // <-- State mới cho danh sách xe
+  const [isLoading, setIsLoading] = useState(true); // <-- State loading
 
-  // callbacks
+  // --- Cấu hình BottomSheet ---
+  const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
+  // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (<BottomSheet>) trong file .jsx
+  const bottomSheetRef = useRef(null);
+
+  // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (: number) trong file .jsx
   const handleSheetChanges = useCallback((index) => {
     console.log("handleSheetChanges", index);
   }, []);
-  // useEffect để gọi API khi màn hình được tải
-  useEffect(() => {
-    const fetchTrips = async () => {
-      // Đây là nơi bạn sẽ gọi API GET /api/trips/
-      // const fetchedTrips = await yourApi.getTrips();
-      // setTrips(fetchedTrips);
 
-      // Dữ liệu giả lập để minh họa
+  // --- Gọi API ---
+  useEffect(() => {
+    // 1. Hàm gọi API chuyến đi (Giữ nguyên)
+    const fetchTrips = async () => {
       setTrips([
         {
           id: 1,
@@ -48,16 +57,45 @@ const HomeScreen = () => {
       ]);
     };
 
+    // 2. Hàm gọi API danh sách xe (Mới)
+    const fetchVehicles = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getMyVehicles();
+        if (data) {
+          setVehicles(data);
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách xe:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchTrips();
+    fetchVehicles();
   }, []);
 
-  // Tọa độ giả lập, sau này sẽ thay bằng vị trí thực của người dùng
   const initialRegion = {
-    latitude: 10.7769, // Vĩ độ của TP.HCM
-    longitude: 106.7009, // Kinh độ của TP.HCM
+    latitude: 10.7769,
+    longitude: 106.7009,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   };
+
+  // --- Hàm Render cho FlatList Xe ---
+  const renderVehicleItem = ({ item }) => (
+    <TouchableOpacity style={styles.vehicleItem}>
+      <Image
+        source={{ uri: item.vehicle_avatar.image }}
+        style={styles.vehicleImage}
+      />
+      <View style={styles.vehicleInfo}>
+        <Text style={styles.vehicleName}>{item.name}</Text>
+        <Text style={styles.vehiclePlate}>{item.license_plate}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -92,7 +130,6 @@ const HomeScreen = () => {
             </Marker>
           ))}
         </MapView>
-
         {/* Floating Search Bar (Giao diện tĩnh) */}
         <SafeAreaView style={styles.floatingContainer}>
           <View style={styles.searchBar}>
@@ -106,11 +143,42 @@ const HomeScreen = () => {
             />
           </View>
         </SafeAreaView>
-
         {/* Sliding Bottom Panel (Giao diện tĩnh) */}
-        <BottomSheet snapPoints={snapPoints}>
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={0} // Bắt đầu ở điểm snap 25%
+          snapPoints={snapPoints}
+          onChange={handleSheetChanges}
+          // Thêm các style từ StyleSheet của bạn
+          backgroundStyle={{
+            backgroundColor: COLORS.background,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+          }}
+          handleIndicatorStyle={styles.handleBar}
+          style={styles.bottomSheetShadow} // Style cho bóng đổ
+        >
           <BottomSheetView style={styles.contentContainer}>
-            <Text>Awesome 🎉</Text>
+            <Text style={styles.panelTitle}>Xe của tôi</Text>
+
+            {/* Logic hiển thị loading hoặc danh sách */}
+            {isLoading ? (
+              <ActivityIndicator
+                size="large"
+                color={COLORS.primary}
+                style={{ marginTop: 30 }}
+              />
+            ) : (
+              <FlatList
+                data={vehicles}
+                renderItem={renderVehicleItem}
+                keyExtractor={(item) => item.id.toString()}
+                style={{ width: "100%", marginTop: 20 }}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>Bạn chưa thêm xe nào.</Text>
+                }
+              />
+            )}
           </BottomSheetView>
         </BottomSheet>
       </View>
@@ -147,34 +215,68 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  bottomSheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    alignItems: "center",
+  // Style cho bóng đổ của BottomSheet
+  bottomSheetShadow: {
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 10,
   },
+  // Style cho thanh handle (giữ nguyên)
   handleBar: {
     width: 40,
     height: 5,
     backgroundColor: COLORS.border,
     borderRadius: 3,
     marginBottom: 10,
+    alignSelf: "center", // Thêm để căn giữa
   },
+  // Style cho tiêu đề (giữ nguyên)
   panelTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: COLORS.text,
   },
+  // Style cho nội dung bên trong BottomSheet
+  contentContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  // Style cho danh sách xe
+  vehicleItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  vehicleImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30, // Bo tròn
+    marginRight: 15,
+    backgroundColor: COLORS.border, // Màu nền chờ
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  vehiclePlate: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginTop: 4,
+  },
+  emptyText: {
+    color: COLORS.textLight,
+    textAlign: "center",
+    marginTop: 20,
+  },
 });
-
 export default HomeScreen;

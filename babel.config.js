@@ -1,15 +1,13 @@
+// babel.config.js
 module.exports = function (api) {
   api.cache(true);
   return {
     presets: [
-      ["babel-preset-expo", { jsxImportSource: "nativewind" }],
+      ["babel-preset-expo", { jsxImportSource: "nativewind" }]
+    ],
+    plugins: [
       "nativewind/babel",
+      "react-native-reanimated/plugin", // <-- Plugin này PHẢI ở cuối cùng
     ],
   };
 };
-// module.exports = function (api) {
-//   api.cache(true);
-//   return {
-//     presets: ['babel-preset-expo'],
-//   };
-// };
