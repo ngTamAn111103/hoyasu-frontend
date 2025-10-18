@@ -33,10 +33,8 @@ const HomeScreen = () => {
 
     fetchTrips();
   }, []);
-  const { signOut } = useAuth(); // Lấy hàm signOut từ context
-  const handleLogout = async () => {
-    await signOut();
-  };
+  
+  
 
   // Tọa độ giả lập, sau này sẽ thay bằng vị trí thực của người dùng
   const initialRegion = {
@@ -96,12 +94,7 @@ const HomeScreen = () => {
         <View style={styles.handleBar} />
         <Text style={styles.panelTitle}>Chuyến đi gần đây</Text>
         <Text style={{ color: COLORS.textLight }}>Vuốt lên để xem thêm</Text>
-        <TouchableOpacity
-        onPress={handleLogout}
-        style={{ backgroundColor: 'red', padding: 15, borderRadius: 10 }}
-      >
-        <Text style={{ color: 'white', fontWeight: 'bold' }}>Đăng Xuất</Text>
-      </TouchableOpacity>
+        
       </View>
     </View>
   );
