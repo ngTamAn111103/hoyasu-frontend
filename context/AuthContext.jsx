@@ -16,7 +16,6 @@ export const AuthProvider = ({ children }) => {
         const token = await AsyncStorage.getItem("accessToken");
         if (token) {
           setIsSignedIn(true); // Nếu có token, coi như đã đăng nhập
-          console.log("Đã đăng nhập với token:", token);
         } else {
           setIsSignedIn(false);
         }

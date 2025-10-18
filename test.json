@@ -1,0 +1,44 @@
+{
+    "created_at": "2025-10-18T19:33:33.548212+07:00",
+    "id": 1,
+    "license_plate": "59X3-110.11",
+    "maintenances": [
+        {
+            "cost": "150000.00",
+            "id": 1,
+            "latitude": null,
+            "longitude": null,
+            "maintenance_type": "Thay nhớt",
+            "notes": "",
+            "odometer": 8193,
+            "service_center": null,
+            "timestamp": "2025-10-18T19:34:35+07:00",
+            "vehicle": 1
+        }
+    ],
+    "name": "Honda CB150R 2023",
+    "odometer": 7986,
+    "owner": "test1@gmail.com",
+    "refuels": [
+        {
+            "cost": "300000.00",
+            "fuel_type": "Xăng A95",
+            "gas_station": null,
+            "id": 4,
+            "is_full_tank": true,
+            "latitude": null,
+            "liters": "15.00",
+            "longitude": null,
+            "notes": "",
+            "odometer": 8000,
+            "price_per_liter": 20000,
+            "timestamp": "2025-10-18T19:34:51+07:00",
+            "vehicle": 1
+        }
+    ],
+    "vehicle_avatar": {
+        "id": 5,
+        "image": "http://10.0.2.2:8000/media/vehicle_avatars/image-Oug0cIbBPhR04Lxy7N9szc15TUwaJZ.png",
+        "name": "Superbike"
+    }
+}
