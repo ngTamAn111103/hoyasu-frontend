@@ -1,14 +1,31 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constant/color";
-import { useAuth } from "../../context/AuthContext"; 
+import { useAuth } from "../../context/AuthContext";
+
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]); // State để lưu danh sách chuyến đi
+  // variables
+  const snapPoints = useMemo(() => ['25%', '50%', '75%'], []);
+  // ref
+  const bottomSheetRef = useRef < BottomSheet > null;
 
+  // callbacks
+  const handleSheetChanges = useCallback((index) => {
+    console.log("handleSheetChanges", index);
+  }, []);
   // useEffect để gọi API khi màn hình được tải
   useEffect(() => {
     const fetchTrips = async () => {
@@ -33,8 +50,6 @@ const HomeScreen = () => {
 
     fetchTrips();
   }, []);
-  
-  
 
   // Tọa độ giả lập, sau này sẽ thay bằng vị trí thực của người dùng
   const initialRegion = {
@@ -45,58 +60,61 @@ const HomeScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={initialRegion}
-        // Custom style cho bản đồ để phù hợp với theme
-        // customMapStyle={mapStyle} // Sẽ thêm sau
-      >
-        <Marker coordinate={initialRegion} title="Vị trí của bạn" />
-        {trips.map((trip) => (
-          <Marker
-            key={trip.id}
-            coordinate={trip.start_coords}
-            title={trip.name}
-            // anchor giúp định vị icon đúng vào tọa độ
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            {/* Đặt component icon của bạn vào đây */}
-            <View
-              style={{
-                backgroundColor: COLORS.background,
-                padding: 8,
-                borderRadius: 20,
-                borderWidth: 2,
-                borderColor: COLORS.primary,
-              }}
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
+        <MapView
+          style={styles.map}
+          initialRegion={initialRegion}
+          // Custom style cho bản đồ để phù hợp với theme
+          // customMapStyle={mapStyle} // Sẽ thêm sau
+        >
+          <Marker coordinate={initialRegion} title="Vị trí của bạn" />
+          {trips.map((trip) => (
+            <Marker
+              key={trip.id}
+              coordinate={trip.start_coords}
+              title={trip.name}
+              // anchor giúp định vị icon đúng vào tọa độ
+              anchor={{ x: 0.5, y: 0.5 }}
             >
-              <Ionicons name="car-sport" size={24} color={COLORS.primary} />
-            </View>
-          </Marker>
-        ))}
-      </MapView>
+              {/* Đặt component icon của bạn vào đây */}
+              <View
+                style={{
+                  backgroundColor: COLORS.background,
+                  padding: 8,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  borderColor: COLORS.primary,
+                }}
+              >
+                <Ionicons name="car-sport" size={24} color={COLORS.primary} />
+              </View>
+            </Marker>
+          ))}
+        </MapView>
 
-      {/* Floating Search Bar (Giao diện tĩnh) */}
-      <SafeAreaView style={styles.floatingContainer}>
-        <View style={styles.searchBar}>
-          <Text style={{ color: COLORS.textLight }}>Tìm kiếm chuyến đi...</Text>
-          <Ionicons
-            name="person-circle-outline"
-            size={32}
-            color={COLORS.primary}
-          />
-        </View>
-      </SafeAreaView>
+        {/* Floating Search Bar (Giao diện tĩnh) */}
+        <SafeAreaView style={styles.floatingContainer}>
+          <View style={styles.searchBar}>
+            <Text style={{ color: COLORS.textLight }}>
+              Tìm kiếm chuyến đi...
+            </Text>
+            <Ionicons
+              name="person-circle-outline"
+              size={32}
+              color={COLORS.primary}
+            />
+          </View>
+        </SafeAreaView>
 
-      {/* Sliding Bottom Panel (Giao diện tĩnh) */}
-      <View style={styles.bottomSheet}>
-        <View style={styles.handleBar} />
-        <Text style={styles.panelTitle}>Chuyến đi gần đây</Text>
-        <Text style={{ color: COLORS.textLight }}>Vuốt lên để xem thêm</Text>
-        
+        {/* Sliding Bottom Panel (Giao diện tĩnh) */}
+        <BottomSheet snapPoints={snapPoints}>
+          <BottomSheetView style={styles.contentContainer}>
+            <Text>Awesome 🎉</Text>
+          </BottomSheetView>
+        </BottomSheet>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 };
 
