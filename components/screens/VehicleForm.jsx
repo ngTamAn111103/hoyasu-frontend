@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StyleSheet, 
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getVehicleAvatars } from "../../services/VehicleService";
@@ -20,7 +21,7 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
   const [name, setName] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
   const [odometer, setOdometer] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // Trạng thái cho nút tải
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedAvatarId, setSelectedAvatarId] = useState(null);
   const [vehicleAvatars, setVehicleAvatars] = useState([]);
@@ -29,8 +30,8 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
   useEffect(() => {
     const fetchVehicleAvatars = async () => {
       try {
-        setIsLoading(true); // Bắt đầu tải
-        setError(null); // Xóa lỗi cũ
+        setIsLoading(true);
+        setError(null);
         const data = await getVehicleAvatars();
         if (data) {
           setVehicleAvatars(data);
@@ -39,22 +40,20 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
         setError("Không thể tải dữ liệu xe.");
         console.error(e);
       } finally {
-        setIsLoading(false); // Kết thúc tải
+        setIsLoading(false);
       }
     };
 
     fetchVehicleAvatars();
-  }, []); // Mảng rỗng đảm bảo useEffect chỉ chạy 1 lần
+  }, []);
 
   const handleSave = () => {
-    // Thu thập dữ liệu từ state
     const vehicleData = {
       name: name,
       license_plate: licensePlate,
       odometer: odometer,
-      vehicle_avatar_id: selectedAvatarId, // Đổi thành vehicle_avatar để khớp với model
+      vehicle_avatar_id: selectedAvatarId,
     };
-    // Gọi prop onSubmit và truyền dữ liệu ra ngoài
     onSubmit(vehicleData);
   };
 
@@ -64,38 +63,35 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
     return (
       <TouchableOpacity
         onPress={() => setSelectedAvatarId(item.id)}
-        // Thêm viền xanh nếu được chọn
-        className={`h-20 w-20 items-center justify-center rounded-full border-2 p-1 ${
-          isSelected ? "border-blue-500" : "border-transparent"
-        }`}
+        // Áp dụng style động
+        style={[
+          styles.avatarWrapper,
+          isSelected ? styles.avatarSelected : styles.avatarDefault,
+        ]}
       >
-        <Image
-          source={{ uri: item.image }}
-          className="h-full w-full rounded-full"
-        />
+        <Image source={{ uri: item.image }} style={styles.avatarImage} />
       </TouchableOpacity>
     );
   };
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
+      style={styles.flex1} 
     >
-      <SafeAreaView className="flex-1 bg-gray-100">
+      <SafeAreaView style={styles.safeArea}> 
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
           {/* Header của Modal */}
-          <View className="flex-row items-center justify-between border-b border-gray-200 p-4">
-            {/* Sử dụng prop onCancel */}
+          <View style={styles.header}> 
             <TouchableOpacity onPress={onCancel}>
-              <Text className="text-lg text-blue-500">Hủy</Text>
+              <Text style={styles.headerButtonText}>Hủy</Text> 
             </TouchableOpacity>
-            <Text className="text-xl font-bold">Thêm xe mới</Text>
+            <Text style={styles.headerTitle}>Thêm xe mới</Text> 
             <View style={{ width: 40 }} />
           </View>
           {/* Nội dung Form */}
-          <View className="p-5">
+          <View style={styles.formContainer}> 
             {/* --- Phần chọn Avatar --- */}
-            <Text className="mb-3 text-base font-semibold text-gray-700">
+            <Text style={styles.label}> 
               Chọn ảnh đại diện
             </Text>
             <FlatList
@@ -108,55 +104,45 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
             />
 
             {/* --- Các trường nhập liệu --- */}
-            <View className="mt-6">
-              <Text className="mb-2 text-base font-semibold text-gray-700">
-                Tên xe (Gợi nhớ)
-              </Text>
+            <View style={styles.inputGroup}> 
+              <Text style={styles.label}>Tên xe (Gợi nhớ)</Text> 
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Ví dụ: My Winner X, Xe đi làm"
-                className="rounded-lg border border-gray-300 bg-white p-4 text-base"
+                style={styles.textInput} 
               />
             </View>
 
-            <View className="mt-4">
-              <Text className="mb-2 text-base font-semibold text-gray-700">
-                Biển số xe
-              </Text>
+            <View style={styles.inputGroupSpaced}> 
+              <Text style={styles.label}>Biển số xe</Text> 
               <TextInput
                 value={licensePlate}
                 onChangeText={setLicensePlate}
                 placeholder="Ví dụ: 59-X3 12345"
                 autoCapitalize="characters"
-                className="rounded-lg border border-gray-300 bg-white p-4 text-base"
+                style={styles.textInput} 
               />
             </View>
 
-            <View className="mt-4">
-              <Text className="mb-2 text-base font-semibold text-gray-700">
-                Số ODO (km)
-              </Text>
+            <View style={styles.inputGroupSpaced}> 
+              <Text style={styles.label}>Số ODO (km)</Text> 
               <TextInput
                 value={odometer}
                 onChangeText={setOdometer}
                 placeholder="Ví dụ: 53000"
                 keyboardType="numeric"
-                className="rounded-lg border border-gray-300 bg-white p-4 text-base"
+                style={styles.textInput} 
               />
             </View>
           </View>
 
           {/* Đẩy nút Lưu xuống dưới cùng */}
-          <View className="flex-1" />
-
+          <View style={styles.flex1} /> 
           {/* Nút Lưu */}
-          <View className="p-5">
-            <TouchableOpacity
-              onPress={handleSave}
-              className="items-center justify-center rounded-lg bg-blue-500 p-4 shadow"
-            >
-              <Text className="text-lg font-bold text-white">Lưu lại</Text>
+          <View style={styles.saveButtonContainer}> 
+            <TouchableOpacity onPress={handleSave} style={styles.saveButton}> 
+              <Text style={styles.saveButtonText}>Lưu lại</Text> 
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -164,5 +150,96 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
     </KeyboardAvoidingView>
   );
 };
+
+// --- Bảng StyleSheet ---
+const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F3F4F6", // (từ bg-gray-100)
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB", // (từ border-gray-200)
+    padding: 16,
+  },
+  headerButtonText: {
+    fontSize: 18, // (từ text-lg)
+    color: "#3B82F6", // (từ text-blue-500)
+  },
+  headerTitle: {
+    fontSize: 20, // (từ text-xl)
+    fontWeight: "bold", // (từ font-bold)
+  },
+  formContainer: {
+    padding: 20, // (từ p-5)
+  },
+  label: {
+    marginBottom: 12, // (từ mb-3)
+    fontSize: 16, // (từ text-base)
+    fontWeight: "600", // (từ font-semibold)
+    color: "#374151", // (từ text-gray-700)
+  },
+  avatarWrapper: {
+    height: 80, // (từ h-20)
+    width: 80, // (từ w-20)
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 40, // (từ rounded-full)
+    borderWidth: 2,
+    padding: 4, // (từ p-1)
+  },
+  avatarSelected: {
+    borderColor: "#3B82F6", // (từ border-blue-500)
+  },
+  avatarDefault: {
+    borderColor: "transparent", // (từ border-transparent)
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%",
+    borderRadius: 40, // (từ rounded-full)
+  },
+  inputGroup: {
+    marginTop: 24, // (từ mt-6)
+  },
+  inputGroupSpaced: {
+    marginTop: 16, // (từ mt-4)
+  },
+  textInput: {
+    borderRadius: 8, // (từ rounded-lg)
+    borderWidth: 1,
+    borderColor: "#D1D5DB", // (từ border-gray-300)
+    backgroundColor: "#FFFFFF", // (từ bg-white)
+    padding: 16, // (từ p-4)
+    fontSize: 16, // (từ text-base)
+  },
+  saveButtonContainer: {
+    padding: 20, // (từ p-5)
+  },
+  saveButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8, // (từ rounded-lg)
+    backgroundColor: "#3B82F6", // (từ bg-blue-500)
+    padding: 16, // (từ p-4)
+    // (từ shadow)
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
+  saveButtonText: {
+    fontSize: 18, // (từ text-lg)
+    fontWeight: "bold", // (từ font-bold)
+    color: "#FFFFFF", // (từ text-white)
+  },
+});
 
 export default VehicleForm;

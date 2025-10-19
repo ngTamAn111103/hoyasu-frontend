@@ -2,8 +2,7 @@ import { useRouter, Stack } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
-import "./globals.css";
+import { ActivityIndicator, View, StyleSheet } from "react-native"; // <--- Thêm StyleSheet
 
 // Component trung gian để có thể truy cập context
 const Layout = () => {
@@ -27,7 +26,7 @@ const Layout = () => {
   // Trong khi đang tải, hiển thị một màn hình chờ toàn cục
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View style={styles.loadingContainer}> 
         <ActivityIndicator size="large" color="#0000ff" />
       </View>
     );
@@ -42,9 +41,22 @@ const Layout = () => {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <SafeAreaView className="flex-1">
+      <SafeAreaView style={styles.safeArea}> 
         <Layout />
       </SafeAreaView>
     </AuthProvider>
   );
 }
+
+// --- Bảng StyleSheet ---
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF", // FIXME: Thay bằng màu `background` từ config Tailwind (bg-background)
+  },
+  safeArea: {
+    flex: 1,
+  },
+});

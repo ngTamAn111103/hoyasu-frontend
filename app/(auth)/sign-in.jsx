@@ -1,4 +1,4 @@
-import { View, Text, Image, Alert } from "react-native";
+import { View, Text, Image, Alert, StyleSheet } from "react-native"; // <--- Thêm StyleSheet
 import React, { useState } from "react";
 import { Link, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -6,7 +6,6 @@ import FormField from "../../components/FormField";
 import CustomButton from "../../components/CustomButton";
 import { LOGIN_URL } from "../../constant/api";
 import { useAuth } from "../../context/AuthContext";
-
 
 const SignInScreen = () => {
   const [email, setEmail] = useState("test1@gmail.com");
@@ -60,44 +59,73 @@ const SignInScreen = () => {
   };
 
   return (
-    <View className="flex-1 items-center justify-center bg-background">
+    // Sử dụng style từ StyleSheet
+    <View style={styles.container}>
       <Image
         source={require("../../assets/images/auth/signin.png")}
-        className="h-60 w-60"
+        style={styles.logo} 
       />
-      <Text className="mb-4 text-2xl font-bold">Sign In</Text>
-
+      <Text style={styles.title}>Sign In</Text> 
       <FormField
         // title="Email"
         value={email}
         handleChangeText={setEmail}
         placeholder="Email"
         keyboardType="email-address"
-        otherStyles="mb-4" // Thêm khoảng cách dưới
+        otherStyles={styles.inputMargin} 
       />
-
       <FormField
         // title="Password"
         value={password}
         handleChangeText={setPassword}
         placeholder="Password"
         secureTextEntry // Tự động ẩn mật khẩu
-        otherStyles="mb-4"
+        otherStyles={styles.inputMargin} 
       />
-
       <CustomButton
         title="Sign In"
         handlePress={handleSignIn}
         isLoading={isLoading}
-        isDisabled={!email || !password} // Vô hiệu hóa nếu email hoặc password trống
-        containerStyles="mb-4"
+        isDisabled={!email || !password}
+        containerStyles={styles.buttonMargin} 
       />
-
-      <Link href="/sign-up" className="mt-2">
-        <Text className="text-primary">Don't have an account? Sign Up</Text>
+      <Link href="/sign-up" style={styles.link}> 
+        <Text style={styles.linkText}>Don't have an account? Sign Up</Text> 
       </Link>
     </View>
   );
 };
+
+// --- Bảng style được chuyển đổi từ NativeWind ---
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF", // FIXME: Thay bằng màu `background` từ config Tailwind của bạn (bg-background)
+  },
+  logo: {
+    width: 240, // (w-60)
+    height: 240, // (h-60)
+  },
+  title: {
+    fontSize: 24, // (text-2xl)
+    fontWeight: "bold", // (font-bold)
+    marginBottom: 16, // (mb-4)
+  },
+  inputMargin: {
+    marginBottom: 16, // (mb-4)
+  },
+  buttonMargin: {
+    marginBottom: 16, // (mb-4)
+  },
+  link: {
+    marginTop: 8, // (mt-2)
+  },
+  linkText: {
+    color: "#007AFF", // FIXME: Thay bằng màu `primary` từ config Tailwind của bạn (text-primary)
+  },
+});
+// --- Hết bảng style ---
 
 export default SignInScreen;

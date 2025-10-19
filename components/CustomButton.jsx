@@ -1,14 +1,19 @@
-import { TouchableOpacity, Text, ActivityIndicator } from "react-native";
+import {
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  StyleSheet, // <--- Đã thêm
+} from "react-native";
 import React from "react";
-import { COLORS } from "../constant/color"; 
+import { COLORS } from "../constant/color";
 
 const CustomButton = ({
-  title, // Tiêu đề của nút, ví dụ: "Sign Up"
-  handlePress, // Hàm sẽ được gọi khi nhấn nút
-  containerStyles, // Style cho thẻ TouchableOpacity (ví dụ: margin)
-  textStyles, // Style cho chữ bên trong nút
-  isLoading, // Trạng thái loading để hiển thị vòng xoay
-  isDisabled, // Trạng thái vô hiệu hóa (do form invalid)
+  title,
+  handlePress,
+  containerStyles,
+  textStyles,
+  isLoading,
+  isDisabled,
 }) => {
   // Nút sẽ bị vô hiệu hóa nếu đang loading HOẶC form không hợp lệ
   const disabled = isLoading || isDisabled;
@@ -17,21 +22,41 @@ const CustomButton = ({
     <TouchableOpacity
       onPress={handlePress}
       disabled={disabled}
-      className={`
-        w-3/4 rounded p-3 
-        ${disabled ? "bg-gray-400" : "bg-primary"} 
-        ${containerStyles}
-      `}
+      style={[
+        styles.container, // Style cơ bản
+        disabled ? styles.containerDisabled : styles.containerEnabled, // Style động
+        containerStyles, // Style tùy chỉnh từ props
+      ]}
     >
       {isLoading ? (
-        <ActivityIndicator color={COLORS.white}  />
+        <ActivityIndicator color={COLORS.white} />
       ) : (
-        <Text className={`text-center font-bold text-white ${textStyles}`}>
-          {title}
-        </Text>
+        <Text style={[styles.text, textStyles]}>{title}</Text> // <--- Đã thay đổi
       )}
     </TouchableOpacity>
   );
 };
+
+// --- Bảng StyleSheet ---
+const styles = StyleSheet.create({
+  container: {
+    width: "75%", // (từ w-3/4)
+    borderRadius: 4, // (từ rounded) - bạn có thể chỉnh lại (rounded-md, rounded-lg...)
+    padding: 12, // (từ p-3)
+    alignItems: "center", // Thêm vào để ActivityIndicator căn giữa
+    justifyContent: "center", // Thêm vào để ActivityIndicator căn giữa
+  },
+  containerEnabled: {
+    backgroundColor: COLORS.primary, // (từ bg-primary) - FIXME: Đảm bảo 'primary' tồn tại trong COLORS
+  },
+  containerDisabled: {
+    backgroundColor: "#A0AEC0", // (từ bg-gray-400)
+  },
+  text: {
+    textAlign: "center", // (từ text-center)
+    fontWeight: "bold", // (từ font-bold)
+    color: COLORS.white, // (từ text-white) - FIXME: Đảm bảo 'white' tồn tại trong COLORS
+  },
+});
 
 export default CustomButton;
