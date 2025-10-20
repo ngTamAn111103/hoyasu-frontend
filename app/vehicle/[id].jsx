@@ -125,7 +125,6 @@ const VehicleDetailScreen = () => {
         const data = await getVehicleDetails(id);
         setVehicle(data);
         setIsLoading(false);
-        console.log(data);
       };
       fetchDetails();
     }

@@ -36,7 +36,7 @@ const HomeScreen = () => {
 
   // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (: number) trong file .jsx
   const handleSheetChanges = useCallback((index) => {
-    console.log("handleSheetChanges", index);
+
   }, []);
 
   // --- Gọi API ---
