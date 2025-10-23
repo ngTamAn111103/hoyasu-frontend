@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { VEHICLES_URL } from "../constant/api"; // Chỉnh sửa đường dẫn nếu cần
-import { VEHICLE_AVATARS_URL } from "../constant/api"; // Chỉnh sửa đường dẫn nếu cần
+import { VEHICLES_URL } from "../constant/api"; 
+import { VEHICLE_AVATARS_URL } from "../constant/api"; 
 
 /**
  * Hàm gọi API để lấy danh sách các ảnh đại diện của xe khi người dùng tạo xe mới.

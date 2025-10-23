@@ -119,7 +119,7 @@ const VehicleForm = ({ onSubmit, onCancel }) => {
               <TextInput
                 value={licensePlate}
                 onChangeText={setLicensePlate}
-                placeholder="Ví dụ: 59-X3 12345"
+                placeholder="Ví dụ: 59X3-123.45"
                 autoCapitalize="characters"
                 style={styles.textInput} 
               />

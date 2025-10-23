@@ -21,13 +21,15 @@ import { COLORS } from "../../constant/color";
 import { useAuth } from "../../context/AuthContext";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
-import { getMyVehicles } from "../../services/VehicleService"; // <-- Import dịch vụ xe
+import BottomSheet, { BottomSheetView, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { getMyVehicles } from "../../services/VehicleService"; 
+import { getTravelMethod } from "../../services/TravelMethodService"; 
 
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]);
-  const [vehicles, setVehicles] = useState([]); // <-- State mới cho danh sách xe
-  const [isLoading, setIsLoading] = useState(true); // <-- State loading
+  const [vehicles, setVehicles] = useState([]); 
+  const [travelMethod, setTravelMethod] = useState([])
+  const [isLoading, setIsLoading] = useState(true); 
 
   // --- Cấu hình BottomSheet ---
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
@@ -41,7 +43,7 @@ const HomeScreen = () => {
 
   // --- Gọi API ---
   useEffect(() => {
-    // 1. Hàm gọi API chuyến đi (Giữ nguyên)
+    // 1. Hàm gọi API chuyến đi
     const fetchTrips = async () => {
       setTrips([
         {
@@ -57,7 +59,7 @@ const HomeScreen = () => {
       ]);
     };
 
-    // 2. Hàm gọi API danh sách xe (Mới)
+    // 2. Hàm gọi API danh sách xe cá nhân
     const fetchVehicles = async () => {
       setIsLoading(true);
       try {
@@ -72,8 +74,25 @@ const HomeScreen = () => {
       }
     };
 
+    // 3. Hàm gọi API danh sách các phương tiện di chuyển (Xe buýt, Taxi, máy bay, ...).
+    const fetchTravelMethod = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getTravelMethod();
+        if (data) {
+          setTravelMethod(data);
+          console.log(data)
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách các phương tiện di chuyển:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchTrips();
     fetchVehicles();
+    fetchTravelMethod();
   }, []);
 
   const initialRegion = {
@@ -96,6 +115,35 @@ const HomeScreen = () => {
       </View>
     </TouchableOpacity>
   );
+  // --- Hàm Render cho FlatList Phương thức khác ---
+const renderTravelMethodItem = ({ item }) => {
+  // 1. Kiểm tra xem item.data_schema có tồn tại hay không
+  const schemaLabels = item.data_schema
+    ? Object.values(item.data_schema) // Lấy ra mảng các object [ {label: ...}, {label: ...} ]
+        .map((field) => field.label) // Lấy ra mảng các chuỗi [ "Tuyến xe", "Giá vé", ... ]
+        .join(", ") // Nối chúng lại: "Tuyến xe, Giá vé, ..."
+    : null; // Nếu data_schema là null, không hiển thị gì
+
+  return (
+    <TouchableOpacity style={styles.vehicleItem}>
+      <Image source={{ uri: item.icon }} style={styles.vehicleImage} />
+      <View style={styles.vehicleInfo}>
+        {/* Dòng này giữ nguyên */}
+        <Text style={styles.vehicleName}>{item.name}</Text>
+
+        {/* 2. Hiển thị các label đã được nối, nếu có */}
+        {schemaLabels && (
+          <Text 
+            style={styles.vehiclePlate} // Tận dụng style cũ (chữ nhỏ, màu xám)
+            numberOfLines={1} // Đảm bảo chỉ hiển thị trên 1 dòng
+          >
+            {schemaLabels}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -158,7 +206,7 @@ const HomeScreen = () => {
           handleIndicatorStyle={styles.handleBar}
           style={styles.bottomSheetShadow} // Style cho bóng đổ
         >
-          <BottomSheetView style={styles.contentContainer}>
+          <BottomSheetScrollView style={styles.scrollContainer}>
             <Text style={styles.panelTitle}>Xe của tôi</Text>
 
             {/* Logic hiển thị loading hoặc danh sách */}
@@ -177,9 +225,31 @@ const HomeScreen = () => {
                 ListEmptyComponent={
                   <Text style={styles.emptyText}>Bạn chưa thêm xe nào.</Text>
                 }
+                scrollEnabled={false}
               />
             )}
-          </BottomSheetView>
+            <Text style={styles.panelTitle}>Phương thức khác</Text>
+
+            {/* Logic hiển thị loading hoặc danh sách */}
+            {isLoading ? (
+              <ActivityIndicator
+                size="large"
+                color={COLORS.primary}
+                style={{ marginTop: 30 }}
+              />
+            ) : (
+              <FlatList
+                data={travelMethod}
+                renderItem={renderTravelMethodItem}
+                keyExtractor={(item) => item.id.toString()}
+                style={{ width: "100%", marginTop: 20 }}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>Bạn chưa thêm xe nào.</Text>
+                }
+                scrollEnabled={false}
+              />
+            )}
+          </BottomSheetScrollView>
         </BottomSheet>
       </View>
     </GestureHandlerRootView>
@@ -237,11 +307,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: COLORS.text,
+    textAlign: 'center'
   },
   // Style cho nội dung bên trong BottomSheet
-  contentContainer: {
+  scrollContainer: {
     flex: 1,
-    alignItems: "center",
     paddingHorizontal: 20,
   },
   // Style cho danh sách xe
