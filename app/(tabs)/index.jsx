@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Alert,
 } from "react-native";
 import React, {
   useEffect,
@@ -49,7 +50,11 @@ const HomeScreen = () => {
   // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
   const handleCreateTripByVehicle = async (vehicleData) => {
     try {
-      const result = await createTripByVehicle(vehicleData);
+      const result = await createTripByVehicle({
+        vehicle_id: vehicleData.id, 
+        start_latitude: initialRegion.latitude, 
+        start_longitude: initialRegion.longitude, 
+      });
 
       if (result) {
         Alert.alert("Thành công", "Đã tạo chuyến đi mới bằng vehicle!");
@@ -121,7 +126,6 @@ const HomeScreen = () => {
         if (data) {
           setTravelMethod(data);
           console.log(data);
-          
         }
       } catch (error) {
         console.error(
@@ -138,6 +142,7 @@ const HomeScreen = () => {
     fetchTravelMethod();
   }, []);
 
+  // Vị trí hiện tại (Giả định)
   const initialRegion = {
     latitude: 10.7769,
     longitude: 106.7009,
