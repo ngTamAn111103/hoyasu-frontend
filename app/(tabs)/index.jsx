@@ -141,9 +141,13 @@ const HomeScreen = () => {
         const data = await getActiveTrip();
         if (data) {
           setActiveTrip(data);
+        } else {
+          // Nếu mảng rỗng hoặc là null, gán activeTrip là null
+          setActiveTrip(null);
         }
       } catch (error) {
         console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
+        setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
       } finally {
         setIsLoading(false);
       }
@@ -164,22 +168,42 @@ const HomeScreen = () => {
   };
 
   // --- Hàm Render cho FlatList Xe ---
-  const renderVehicleItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.vehicleItem}
-      onLongPress={() => handleCreateTripByVehicle(item)}
-      delayLongPress={DELAY_LONG_PRESS}
-    >
-      <Image
-        source={{ uri: item.vehicle_avatar.image }}
-        style={styles.vehicleImage}
-      />
-      <View style={styles.vehicleInfo}>
-        <Text style={styles.vehicleName}>{item.name}</Text>
-        <Text style={styles.vehiclePlate}>{item.license_plate}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderVehicleItem = ({ item }) => {
+    // 1. Kiểm tra xem item này có đang active không
+    const isActive = activeTrip && activeTrip.vehicle?.id === item.id;
+    // 2. Kiểm tra xem nút có bị vô hiệu hóa không
+    // (Bất kỳ chuyến đi nào đang active cũng sẽ vô hiệu hóa TẤT CẢ)
+    const isDisabled = activeTrip != null;
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.vehicleItem,
+          // 3. Áp dụng style phụ
+          isDisabled && !isActive && styles.itemDisabled, // Nếu item này bị vô hiệu hóa, VÀ nó không phải là item đang active, thì áp dụng style làm mờ nó đi
+          isActive && styles.itemActive, // Nếu item này chính là item đang active, thì áp dụng style làm nổi bật nó lên
+        ]}
+        onLongPress={() => handleCreateTripByVehicle(item)}
+        delayLongPress={DELAY_LONG_PRESS}
+        disabled={isDisabled}
+      >
+        <Image
+          source={{ uri: item.vehicle_avatar.image }}
+          style={styles.vehicleImage}
+        />
+        <View style={styles.vehicleInfo}>
+          <Text style={styles.vehicleName}>{item.name}</Text>
+          <Text style={styles.vehiclePlate}>{item.license_plate}</Text>
+        </View>
+        {/* 5. Thêm một "huy hiệu" để báo đang active */}
+        {isActive && (
+          <View style={styles.activeBadge}>
+            <Text style={styles.activeText}>Đang đi</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
   // --- Hàm Render cho FlatList Phương thức khác ---
   const renderTravelMethodItem = ({ item }) => {
     // 1. Kiểm tra xem item.data_schema có tồn tại hay không
@@ -391,13 +415,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
+    position: "relative", // <-- Thêm để định vị "huy hiệu"
   },
   vehicleImage: {
     width: 60,
     height: 60,
-    borderRadius: 30, // Bo tròn
+    borderRadius: 30,
     marginRight: 15,
-    backgroundColor: COLORS.border, // Màu nền chờ
+    backgroundColor: COLORS.border,
   },
   vehicleInfo: {
     flex: 1,
@@ -417,5 +442,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
   },
+  // Style cho danh sách xe (khi bị vô hiệu hoá, không phải active)
+  itemDisabled: {
+    opacity: 0.4,
+  },
+  itemActive: {
+    backgroundColor: COLORS.primary, // Nền màu chính
+    borderColor: COLORS.border, // Viền màu chính
+    borderWidth: 1,
+  },
+  // Style cho huy hiệu (active)
+  activeBadge: {
+    position: "absolute",
+    top: "50%",
+    right: 10,
+    backgroundColor: "white",
+    borderRadius: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+
+  },
+  activeText: {
+  color: COLORS.primary,
+  fontWeight: 'bold',
+},
+
 });
 export default HomeScreen;

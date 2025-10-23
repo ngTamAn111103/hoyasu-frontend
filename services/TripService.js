@@ -68,9 +68,7 @@ export const getActiveTrip = async () => {
 
     // Nếu là 200 OK, response.json() sẽ là ĐỐI TƯỢNG (object)
     const activeTripObject = await response.json();
-    
-    // Log của bạn bây giờ sẽ hiển thị đối tượng
-    console.log("fetchActiveTrip (Object):", activeTripObject); 
+
     
     return activeTripObject; // Trả về đối tượng chuyến đi
     
