@@ -70,19 +70,19 @@ const HomeScreen = () => {
     }
 
     // Tùy chọn: Tự động đóng BottomSheet lại
-    // bottomSheetRef.current?.close();
+    bottomSheetRef.current?.snapToIndex(0);
   };
 
   // Handle xử lý Long Press (nhấn giữ) của các phương thức di chuyển (Travel method)
   const handleCreateTripByTravelMethod = async (item, type) => {
-    console.log("Bắt đầu tạo chuyến đi cho (Cá nhân):", item.name);
+    console.log("Bắt đầu tạo chuyến đi cho (Công cộng):", item.name);
     // Gọi API: Tạo 1 bản ghi Trip bằng vehicle:
     try {
-      const result = await createTripByVehicle();
+      // const result = await createTripByVehicle();
     } catch (error) {}
 
     // Tùy chọn: Tự động đóng BottomSheet lại
-    // bottomSheetRef.current?.close();
+    // bottomSheetRef.current?.snapToIndex(0);
   };
 
   // --- Gọi API ---
