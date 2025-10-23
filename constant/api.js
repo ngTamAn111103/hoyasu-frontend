@@ -17,3 +17,6 @@ export const VEHICLE_AVATARS_URL = `${API_BASE_URL}api/vehicle-avatars/`;
 // ----------------------------------
 // Lấy danh sách phương thức di chuyển
 export const TRAVEL_METHOD_URL = `${API_BASE_URL}api/travel-methods/`;
+// ----------------------------------
+// API Trips
+export const TRIP_URL = `${API_BASE_URL}api/trips/`;

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { VEHICLES_URL } from "../constant/api"; 
 import { VEHICLE_AVATARS_URL } from "../constant/api"; 
+import { TRIP_URL} from "../constant/api"; 
 
 /**
  * Hàm gọi API để lấy danh sách các ảnh đại diện của xe khi người dùng tạo xe mới.
@@ -136,6 +137,41 @@ export const createVehicle = async (vehicleData) => {
     return data;
   } catch (error) {
     console.error("Đã xảy ra lỗi trong hàm createVehicle:", error);
+    return null;
+  }
+};
+/**
+ * Hàm gọi API để tạo một chuyến đi (Trip) mới với phương tiện cá nhân (Vehicle).
+ * @param {object} tripByVehicleData - Dữ liệu của chuyến đi cần tạo.
+ * @returns {Promise<object|null>} Dữ liệu chuyến đi đã tạo nếu thành công, ngược lại trả về null.
+ */
+export const createTripByVehicle = async (tripByVehicleData) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    if (!token) {
+      console.log("Không tìm thấy token.");
+      return null;
+    }
+
+    const response = await fetch(TRIP_URL, {
+      method: "POST", // Sử dụng phương thức POST
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify(tripByVehicleData), // Gửi dữ liệu trong body
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Lỗi API khi tạo chuyến đi bằng vehicle:", errorData);
+      throw new Error("Lỗi từ server: " + response.status);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Đã xảy ra lỗi trong hàm createTripByVehicle:", error);
     return null;
   }
 };

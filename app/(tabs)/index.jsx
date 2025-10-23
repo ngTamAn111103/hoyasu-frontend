@@ -21,25 +21,64 @@ import { COLORS } from "../../constant/color";
 import { useAuth } from "../../context/AuthContext";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import BottomSheet, { BottomSheetView, BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { getMyVehicles } from "../../services/VehicleService"; 
-import { getTravelMethod } from "../../services/TravelMethodService"; 
+import BottomSheet, {
+  BottomSheetView,
+  BottomSheetScrollView,
+} from "@gorhom/bottom-sheet";
+import {
+  getMyVehicles,
+  createTripByVehicle,
+} from "../../services/VehicleService";
+import { getTravelMethod } from "../../services/TravelMethodService";
 
+const DELAY_LONG_PRESS = 500;
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]);
-  const [vehicles, setVehicles] = useState([]); 
-  const [travelMethod, setTravelMethod] = useState([])
-  const [isLoading, setIsLoading] = useState(true); 
+  const [vehicles, setVehicles] = useState([]);
+  const [travelMethod, setTravelMethod] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- Cấu hình BottomSheet ---
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
   // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (<BottomSheet>) trong file .jsx
   const bottomSheetRef = useRef(null);
 
-  // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (: number) trong file .jsx
-  const handleSheetChanges = useCallback((index) => {
+  // Handle xử lý trượt của Bottom sheet
+  const handleSheetChanges = useCallback((index) => {}, []);
 
-  }, []);
+  // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
+  const handleCreateTripByVehicle = async (vehicleData) => {
+    try {
+      const result = await createTripByVehicle(vehicleData);
+
+      if (result) {
+        Alert.alert("Thành công", "Đã tạo chuyến đi mới bằng vehicle!");
+      } else {
+        Alert.alert(
+          "Lỗi",
+          "Không thể tạo chuyến đi mới bằng vehicle. Vui lòng thử lại.",
+        );
+      }
+    } catch (error) {
+      console.error("Lỗi khi tạo chuyến đi mới bằng vehicle:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn.");
+    }
+
+    // Tùy chọn: Tự động đóng BottomSheet lại
+    // bottomSheetRef.current?.close();
+  };
+
+  // Handle xử lý Long Press (nhấn giữ) của các phương thức di chuyển (Travel method)
+  const handleCreateTripByTravelMethod = async (item, type) => {
+    console.log("Bắt đầu tạo chuyến đi cho (Cá nhân):", item.name);
+    // Gọi API: Tạo 1 bản ghi Trip bằng vehicle:
+    try {
+      const result = await createTripByVehicle();
+    } catch (error) {}
+
+    // Tùy chọn: Tự động đóng BottomSheet lại
+    // bottomSheetRef.current?.close();
+  };
 
   // --- Gọi API ---
   useEffect(() => {
@@ -81,10 +120,14 @@ const HomeScreen = () => {
         const data = await getTravelMethod();
         if (data) {
           setTravelMethod(data);
-          console.log(data)
+          console.log(data);
+          
         }
       } catch (error) {
-        console.error("Lỗi khi tải danh sách các phương tiện di chuyển:", error);
+        console.error(
+          "Lỗi khi tải danh sách các phương tiện di chuyển:",
+          error,
+        );
       } finally {
         setIsLoading(false);
       }
@@ -104,7 +147,11 @@ const HomeScreen = () => {
 
   // --- Hàm Render cho FlatList Xe ---
   const renderVehicleItem = ({ item }) => (
-    <TouchableOpacity style={styles.vehicleItem}>
+    <TouchableOpacity
+      style={styles.vehicleItem}
+      onLongPress={() => handleCreateTripByVehicle(item)}
+      delayLongPress={DELAY_LONG_PRESS}
+    >
       <Image
         source={{ uri: item.vehicle_avatar.image }}
         style={styles.vehicleImage}
@@ -116,34 +163,38 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
   // --- Hàm Render cho FlatList Phương thức khác ---
-const renderTravelMethodItem = ({ item }) => {
-  // 1. Kiểm tra xem item.data_schema có tồn tại hay không
-  const schemaLabels = item.data_schema
-    ? Object.values(item.data_schema) // Lấy ra mảng các object [ {label: ...}, {label: ...} ]
-        .map((field) => field.label) // Lấy ra mảng các chuỗi [ "Tuyến xe", "Giá vé", ... ]
-        .join(", ") // Nối chúng lại: "Tuyến xe, Giá vé, ..."
-    : null; // Nếu data_schema là null, không hiển thị gì
+  const renderTravelMethodItem = ({ item }) => {
+    // 1. Kiểm tra xem item.data_schema có tồn tại hay không
+    const schemaLabels = item.data_schema
+      ? Object.values(item.data_schema) // Lấy ra mảng các object [ {label: ...}, {label: ...} ]
+          .map((field) => field.label) // Lấy ra mảng các chuỗi [ "Tuyến xe", "Giá vé", ... ]
+          .join(", ") // Nối chúng lại: "Tuyến xe, Giá vé, ..."
+      : null; // Nếu data_schema là null, không hiển thị gì
 
-  return (
-    <TouchableOpacity style={styles.vehicleItem}>
-      <Image source={{ uri: item.icon }} style={styles.vehicleImage} />
-      <View style={styles.vehicleInfo}>
-        {/* Dòng này giữ nguyên */}
-        <Text style={styles.vehicleName}>{item.name}</Text>
+    return (
+      <TouchableOpacity
+        style={styles.vehicleItem}
+        onLongPress={() => handleCreateTripByTravelMethod(item)}
+        delayLongPress={DELAY_LONG_PRESS}
+      >
+        <Image source={{ uri: item.icon }} style={styles.vehicleImage} />
+        <View style={styles.vehicleInfo}>
+          {/* Dòng này giữ nguyên */}
+          <Text style={styles.vehicleName}>{item.name}</Text>
 
-        {/* 2. Hiển thị các label đã được nối, nếu có */}
-        {schemaLabels && (
-          <Text 
-            style={styles.vehiclePlate} // Tận dụng style cũ (chữ nhỏ, màu xám)
-            numberOfLines={1} // Đảm bảo chỉ hiển thị trên 1 dòng
-          >
-            {schemaLabels}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-};
+          {/* 2. Hiển thị các label đã được nối, nếu có */}
+          {schemaLabels && (
+            <Text
+              style={styles.vehiclePlate} // Tận dụng style cũ (chữ nhỏ, màu xám)
+              numberOfLines={1} // Đảm bảo chỉ hiển thị trên 1 dòng
+            >
+              {schemaLabels}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -307,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: COLORS.text,
-    textAlign: 'center'
+    textAlign: "center",
   },
   // Style cho nội dung bên trong BottomSheet
   scrollContainer: {
