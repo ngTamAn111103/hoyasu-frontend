@@ -26,15 +26,14 @@ import BottomSheet, {
   BottomSheetView,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
-import {
-  getMyVehicles,
-  createTripByVehicle,
-} from "../../services/VehicleService";
+import { getMyVehicles } from "../../services/VehicleService";
+import { createTripByVehicle, getActiveTrip } from "../../services/TripService";
 import { getTravelMethod } from "../../services/TravelMethodService";
 
 const DELAY_LONG_PRESS = 500;
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]);
+  const [activeTrip, setActiveTrip] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [travelMethod, setTravelMethod] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,9 +50,9 @@ const HomeScreen = () => {
   const handleCreateTripByVehicle = async (vehicleData) => {
     try {
       const result = await createTripByVehicle({
-        vehicle_id: vehicleData.id, 
-        start_latitude: initialRegion.latitude, 
-        start_longitude: initialRegion.longitude, 
+        vehicle_id: vehicleData.id,
+        start_latitude: initialRegion.latitude,
+        start_longitude: initialRegion.longitude,
       });
 
       if (result) {
@@ -125,7 +124,6 @@ const HomeScreen = () => {
         const data = await getTravelMethod();
         if (data) {
           setTravelMethod(data);
-          console.log(data);
         }
       } catch (error) {
         console.error(
@@ -136,10 +134,25 @@ const HomeScreen = () => {
         setIsLoading(false);
       }
     };
+    // 4. Hàm gọi API lấy và kiểm tra xem đang có chuyến đi nào chưa kết thúc hay không.
+    const fetchActiveTrip = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getActiveTrip();
+        if (data) {
+          setActiveTrip(data);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     fetchTrips();
     fetchVehicles();
     fetchTravelMethod();
+    fetchActiveTrip();
   }, []);
 
   // Vị trí hiện tại (Giả định)

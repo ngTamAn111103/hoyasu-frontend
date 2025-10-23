@@ -1,0 +1,30 @@
+{
+    "coordinates": [],
+    "end_address": null,
+    "end_latitude": null,
+    "end_longitude": null,
+    "end_odometer": null,
+    "end_time": null,
+    "id": 11,
+    "metadata": null,
+    "notes": null,
+    "start_address": null,
+    "start_latitude": "10.776900",
+    "start_longitude": "106.700900",
+    "start_odometer": null,
+    "start_time": "2025-10-24T00:42:14.683986+07:00",
+    "total_distance": "0.00",
+    "travel_method": null,
+    "user": "test1@gmail.com",
+    "vehicle": {
+        "id": 1,
+        "license_plate": "59X3-110.11",
+        "name": "SH 350i",
+        "odometer": 5,
+        "vehicle_avatar": {
+            "id": 1,
+            "image": "http://localhost:8000/media/vehicle_avatars/Motor_Scooter.png",
+            "name": "Motor Scooter"
+        }
+    }
+}
