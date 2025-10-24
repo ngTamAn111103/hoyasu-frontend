@@ -33,15 +33,86 @@ import { getTravelMethod } from "../../services/TravelMethodService";
 const DELAY_LONG_PRESS = 500;
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]);
-  const [activeTrip, setActiveTrip] = useState([]);
+  const [activeTrip, setActiveTrip] = useState(null);
   const [vehicles, setVehicles] = useState([]);
   const [travelMethod, setTravelMethod] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // --- Cấu hình BottomSheet ---
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
-  // Sửa lỗi cú pháp: Bỏ kiểu TypeScript (<BottomSheet>) trong file .jsx
   const bottomSheetRef = useRef(null);
+
+  // Vị trí hiện tại (Giả định)
+  const initialRegion = {
+    latitude: 10.7769,
+    longitude: 106.7009,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  };
+
+  // 1. Hàm gọi API chuyến đi
+  const fetchTrips = async () => {
+    setTrips([
+      {
+        id: 1,
+        name: "Chuyến đi sáng nay",
+        start_coords: { latitude: 10.7769, longitude: 106.7009 },
+      },
+      {
+        id: 2,
+        name: "Về nhà chiều qua",
+        start_coords: { latitude: 10.8231, longitude: 106.6297 },
+      },
+    ]);
+  };
+
+  // 2. Hàm gọi API danh sách xe cá nhân
+  const fetchVehicles = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getMyVehicles();
+      if (data) {
+        setVehicles(data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách xe:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 3. Hàm gọi API danh sách các phương tiện di chuyển (Xe buýt, Taxi, máy bay, ...).
+  const fetchTravelMethod = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getTravelMethod();
+      if (data) {
+        setTravelMethod(data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách các phương tiện di chuyển:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  // 4. Hàm gọi API lấy và kiểm tra xem đang có chuyến đi nào chưa kết thúc hay không.
+  const fetchActiveTrip = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getActiveTrip();
+      if (data) {
+        setActiveTrip(data);
+      } else {
+        // Nếu mảng rỗng hoặc là null, gán activeTrip là null
+        setActiveTrip(null);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
+      setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle xử lý trượt của Bottom sheet
   const handleSheetChanges = useCallback((index) => {}, []);
@@ -57,6 +128,7 @@ const HomeScreen = () => {
 
       if (result) {
         Alert.alert("Thành công", "Đã tạo chuyến đi mới bằng vehicle!");
+        fetchActiveTrip();
       } else {
         Alert.alert(
           "Lỗi",
@@ -84,88 +156,13 @@ const HomeScreen = () => {
     // bottomSheetRef.current?.snapToIndex(0);
   };
 
-  // --- Gọi API ---
+  // --- Gọi API lần đầu khi load màn hình ---
   useEffect(() => {
-    // 1. Hàm gọi API chuyến đi
-    const fetchTrips = async () => {
-      setTrips([
-        {
-          id: 1,
-          name: "Chuyến đi sáng nay",
-          start_coords: { latitude: 10.7769, longitude: 106.7009 },
-        },
-        {
-          id: 2,
-          name: "Về nhà chiều qua",
-          start_coords: { latitude: 10.8231, longitude: 106.6297 },
-        },
-      ]);
-    };
-
-    // 2. Hàm gọi API danh sách xe cá nhân
-    const fetchVehicles = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getMyVehicles();
-        if (data) {
-          setVehicles(data);
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải danh sách xe:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    // 3. Hàm gọi API danh sách các phương tiện di chuyển (Xe buýt, Taxi, máy bay, ...).
-    const fetchTravelMethod = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getTravelMethod();
-        if (data) {
-          setTravelMethod(data);
-        }
-      } catch (error) {
-        console.error(
-          "Lỗi khi tải danh sách các phương tiện di chuyển:",
-          error,
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    // 4. Hàm gọi API lấy và kiểm tra xem đang có chuyến đi nào chưa kết thúc hay không.
-    const fetchActiveTrip = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getActiveTrip();
-        if (data) {
-          setActiveTrip(data);
-        } else {
-          // Nếu mảng rỗng hoặc là null, gán activeTrip là null
-          setActiveTrip(null);
-        }
-      } catch (error) {
-        console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
-        setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchTrips();
     fetchVehicles();
     fetchTravelMethod();
     fetchActiveTrip();
   }, []);
-
-  // Vị trí hiện tại (Giả định)
-  const initialRegion = {
-    latitude: 10.7769,
-    longitude: 106.7009,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  };
 
   // --- Hàm Render cho FlatList Xe ---
   const renderVehicleItem = ({ item }) => {
@@ -460,12 +457,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 6,
     paddingVertical: 2,
-
   },
   activeText: {
-  color: COLORS.primary,
-  fontWeight: 'bold',
-},
-
+    color: COLORS.primary,
+    fontWeight: "bold",
+  },
 });
 export default HomeScreen;
