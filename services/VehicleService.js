@@ -114,7 +114,7 @@ export const createVehicle = async (vehicleData) => {
   try {
     const token = await AsyncStorage.getItem("accessToken");
     if (!token) {
-      console.log("Không tìm thấy token.");
+      console.log("Không tìm thấy token - createVehicle");
       return null;
     }
 

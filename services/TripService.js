@@ -10,7 +10,7 @@ export const createTripByVehicle = async (tripByVehicleData) => {
   try {
     const token = await AsyncStorage.getItem("accessToken");
     if (!token) {
-      console.log("Không tìm thấy token.");
+      console.log("Không tìm thấy token - createTripByVehicle");
       return null;
     }
 
@@ -44,7 +44,7 @@ export const getActiveTrip = async () => {
   try {
     const token = await AsyncStorage.getItem("accessToken");
     if (!token) {
-      console.log("Không tìm thấy token.");
+      console.log("Không tìm thấy token - getActiveTrip");
       return null;
     }
 

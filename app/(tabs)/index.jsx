@@ -37,6 +37,8 @@ const HomeScreen = () => {
   const [vehicles, setVehicles] = useState([]);
   const [travelMethod, setTravelMethod] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  // 2. Lấy trạng thái xác thực
+  const { isSignedIn, isLoading: isAuthLoading } = useAuth();
 
   // --- Cấu hình BottomSheet ---
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
@@ -115,7 +117,7 @@ const HomeScreen = () => {
   };
 
   // Handle xử lý trượt của Bottom sheet
-  const handleSheetChanges = useCallback((index) => {}, []);
+  const handleSheetChanges = useCallback((index) => { }, []);
 
   // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
   const handleCreateTripByVehicle = async (vehicleData) => {
@@ -150,7 +152,7 @@ const HomeScreen = () => {
     // Gọi API: Tạo 1 bản ghi Trip bằng vehicle:
     try {
       // const result = await createTripByVehicle();
-    } catch (error) {}
+    } catch (error) { }
 
     // Tùy chọn: Tự động đóng BottomSheet lại
     // bottomSheetRef.current?.snapToIndex(0);
@@ -158,11 +160,14 @@ const HomeScreen = () => {
 
   // --- Gọi API lần đầu khi load màn hình ---
   useEffect(() => {
-    fetchTrips();
-    fetchVehicles();
-    fetchTravelMethod();
-    fetchActiveTrip();
-  }, []);
+    if (!isAuthLoading && isSignedIn) {
+      fetchTrips();
+      fetchVehicles();
+      fetchTravelMethod();
+      fetchActiveTrip();
+    }
+  }, [isSignedIn,isAuthLoading,]
+);
 
   // --- Hàm Render cho FlatList Xe ---
   const renderVehicleItem = ({ item }) => {
@@ -206,8 +211,8 @@ const HomeScreen = () => {
     // 1. Kiểm tra xem item.data_schema có tồn tại hay không
     const schemaLabels = item.data_schema
       ? Object.values(item.data_schema) // Lấy ra mảng các object [ {label: ...}, {label: ...} ]
-          .map((field) => field.label) // Lấy ra mảng các chuỗi [ "Tuyến xe", "Giá vé", ... ]
-          .join(", ") // Nối chúng lại: "Tuyến xe, Giá vé, ..."
+        .map((field) => field.label) // Lấy ra mảng các chuỗi [ "Tuyến xe", "Giá vé", ... ]
+        .join(", ") // Nối chúng lại: "Tuyến xe, Giá vé, ..."
       : null; // Nếu data_schema là null, không hiển thị gì
 
     return (
@@ -241,8 +246,8 @@ const HomeScreen = () => {
         <MapView
           style={styles.map}
           initialRegion={initialRegion}
-          // Custom style cho bản đồ để phù hợp với theme
-          // customMapStyle={mapStyle} // Sẽ thêm sau
+        // Custom style cho bản đồ để phù hợp với theme
+        // customMapStyle={mapStyle} // Sẽ thêm sau
         >
           <Marker coordinate={initialRegion} title="Vị trí của bạn" />
           {trips.map((trip) => (
