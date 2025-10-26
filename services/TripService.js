@@ -36,6 +36,39 @@ export const createTripByVehicle = async (tripByVehicleData) => {
     return null;
   }
 };
+// Service để gọi API kết thúc chuyến đi
+export const endActiveTrip = async (tripId, endData) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    if (!token) {
+      console.log("Không tìm thấy token - endActiveTrip");
+      return null;
+    }
+    console.log(`${TRIP_URL}${tripId}/`);
+    console.log(JSON.stringify(endData));
+
+    
+    const response = await fetch(`${TRIP_URL}${tripId}/`, {
+      method: "PATCH", 
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
+      body: JSON.stringify(endData),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Lỗi API khi kết thúc chuyến đi bằng vehicle - endActiveTrip:", errorData);
+      throw new Error("Lỗi từ server: " + response.status);
+    }
+  } catch (error) {
+    console.error("Đã xảy ra lỗi trong hàm endActiveTrip:", error);
+    return null;
+  }
+
+
+
+};
 
 /**
  * Kiểm tra và lấy chuyến đi đang hoạt động (nếu có)
@@ -69,9 +102,9 @@ export const getActiveTrip = async () => {
     // Nếu là 200 OK, response.json() sẽ là ĐỐI TƯỢNG (object)
     const activeTripObject = await response.json();
 
-    
+
     return activeTripObject; // Trả về đối tượng chuyến đi
-    
+
   } catch (error) {
     console.error("Đã xảy ra lỗi trong hàm getActiveTrip:", error);
     return null;

@@ -1,3 +1,4 @@
+// Thư viện
 import {
   View,
   Text,
@@ -15,30 +16,47 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constant/color";
 import { useAuth } from "../../context/AuthContext";
-
+import * as Location from 'expo-location';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import BottomSheet, {
   BottomSheetView,
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { getMyVehicles } from "../../services/VehicleService";
-import { createTripByVehicle, getActiveTrip } from "../../services/TripService";
+import { createTripByVehicle, getActiveTrip, endActiveTrip } from "../../services/TripService";
 import { getTravelMethod } from "../../services/TravelMethodService";
 
+// Thời gian nhấn để tạo chuyến đi (ms)
 const DELAY_LONG_PRESS = 500;
+
 const HomeScreen = () => {
+  // Mảng chuyến đi để thể hiện trên bản đồ
   const [trips, setTrips] = useState([]);
+  // Mảng (1 item) chuyến đi đang thực hiện
   const [activeTrip, setActiveTrip] = useState(null);
+  // Mảng phương tiện cá nhân
   const [vehicles, setVehicles] = useState([]);
+  // Mảng phương thức di chuyển
   const [travelMethod, setTravelMethod] = useState([]);
+  // Dành cho vị trí hiện tại của người dùng đang đứng
+  const [currentLocation, setCurrentLocation] = useState(null); // State lưu vị trí
+  // String hiển hiển thị lỗi nếu cần, (Không được quyền truy cập)
+  const [locationError, setLocationError] = useState(null);
+  // State để vẽ đường đi
+  const [path, setPath] = useState([]);
+  // 1. Thêm một ref để lưu subscription
+  const locationSubscription = useRef(null);
+
+  // Kiểm tra có đang trong trạng thái loading không?
   const [isLoading, setIsLoading] = useState(true);
-  // 2. Lấy trạng thái xác thực
+  // Lấy trạng thái xác thực: Tránh gọi API khi chưa đăng nhập
   const { isSignedIn, isLoading: isAuthLoading } = useAuth();
+
 
   // --- Cấu hình BottomSheet ---
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
@@ -51,6 +69,13 @@ const HomeScreen = () => {
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   };
+  // Tính toán region mới nếu có vị trí
+  const region = currentLocation ? {
+    latitude: currentLocation.latitude,
+    longitude: currentLocation.longitude,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.005,
+  } : initialRegion;
 
   // 1. Hàm gọi API chuyến đi
   const fetchTrips = async () => {
@@ -119,6 +144,40 @@ const HomeScreen = () => {
   // Handle xử lý trượt của Bottom sheet
   const handleSheetChanges = useCallback((index) => { }, []);
 
+  // Hàm BẬT theo dõi
+  const startWatchingLocation = useCallback(async () => {
+    // Xin quyền
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+      return;
+    }
+
+    // Bật theo dõi
+    locationSubscription.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000, // 1 giây
+        distanceInterval: 10, // 10 mét
+      },
+      (newLocation) => {
+        setCurrentLocation(newLocation.coords); // Cập nhật vị trí marker
+        // GHI LẠI ĐƯỜNG ĐI
+        setPath((prevPath) => [...prevPath, newLocation.coords]);
+        console.log(newLocation.coords);
+
+      }
+    );
+  }, []); // Hàm này không đổi, nên dùng useCallback
+
+  // Hàm TẮT theo dõi
+  const stopWatchingLocation = useCallback(() => {
+    if (locationSubscription.current) {
+      locationSubscription.current.remove();
+      locationSubscription.current = null;
+    }
+  }, []); // Hàm này cũng không đổi
+
   // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
   const handleCreateTripByVehicle = async (vehicleData) => {
     try {
@@ -146,6 +205,38 @@ const HomeScreen = () => {
     bottomSheetRef.current?.snapToIndex(0);
   };
 
+  // Gọi API và cập nhật lại các state nếu người dùng kết thúc chuyến đi
+  const handleEndTrip = async () => {
+    // Nếu không có chuyến đi nào hiện tại || không lấy được vị trí hiện tại
+    if (!activeTrip || !currentLocation) {
+      return
+    }
+    try {
+      // Tạo biến json để gửi tới API
+      const endData = {
+        // 1. Dùng toFixed(6) cho vĩ độ (latitude)
+        end_latitude: parseFloat(currentLocation.latitude.toFixed(6)),
+
+        // 2. Dùng toFixed(7) cho kinh độ (longitude)
+        end_longitude: parseFloat(currentLocation.longitude.toFixed(6)),
+
+        total_distance: 10,
+      };
+      const result = await endActiveTrip(activeTrip.id, endData)
+      if (result) {
+        Alert.alert("Đã kết thúc", "Chuyến đi của bạn đã được lưu.");
+        // DỌN DẸP STATE
+        setActiveTrip(null); // <-- Tự động tắt GPS (do activeTrip đã nằm trong useEffect())
+        setPath([]); // Xóa đường vẽ
+      }
+
+    } catch (error) {
+      console.error("Lỗi khi kết thúc chuyến đi - handleEndTrip: ", error);
+
+    }
+  }
+
+
   // Handle xử lý Long Press (nhấn giữ) của các phương thức di chuyển (Travel method)
   const handleCreateTripByTravelMethod = async (item, type) => {
     console.log("Bắt đầu tạo chuyến đi cho (Công cộng):", item.name);
@@ -166,8 +257,26 @@ const HomeScreen = () => {
       fetchTravelMethod();
       fetchActiveTrip();
     }
-  }, [isSignedIn,isAuthLoading,]
-);
+  }, [isSignedIn, isAuthLoading,]
+  );
+  // --- useEffect MỚI: Tự động Bật/Tắt GPS ---
+  useEffect(() => {
+    if (activeTrip) {
+      // Có chuyến đi -> Bật GPS và bắt đầu ghi đường đi
+      console.log("Bắt đầu theo dõi GPS cho chuyến đi...");
+      setPath([]); // Xóa đường đi cũ
+      startWatchingLocation();
+    } else {
+      // Không có chuyến đi -> Tắt GPS
+      console.log("Dừng theo dõi GPS.");
+      stopWatchingLocation();
+    }
+
+    // Hàm dọn dẹp: Tắt GPS khi component bị unmount
+    return () => {
+      stopWatchingLocation();
+    };
+  }, [activeTrip, startWatchingLocation, stopWatchingLocation]); // Chạy lại khi activeTrip thay đổi
 
   // --- Hàm Render cho FlatList Xe ---
   const renderVehicleItem = ({ item }) => {
@@ -246,10 +355,13 @@ const HomeScreen = () => {
         <MapView
           style={styles.map}
           initialRegion={initialRegion}
+          region={region}
         // Custom style cho bản đồ để phù hợp với theme
         // customMapStyle={mapStyle} // Sẽ thêm sau
         >
-          <Marker coordinate={initialRegion} title="Vị trí của bạn" />
+          {currentLocation && (
+            <Marker coordinate={currentLocation} title="Vị trí của bạn" />
+          )}
           {trips.map((trip) => (
             <Marker
               key={trip.id}
@@ -272,6 +384,11 @@ const HomeScreen = () => {
               </View>
             </Marker>
           ))}
+          <Polyline
+            coordinates={path} // Lấy dữ liệu từ state
+            strokeColor={COLORS.primary} // Màu của đường
+            strokeWidth={6} // Độ dày
+          />
         </MapView>
         {/* Floating Search Bar (Giao diện tĩnh) */}
         <SafeAreaView style={styles.floatingContainer}>
@@ -346,6 +463,16 @@ const HomeScreen = () => {
             )}
           </BottomSheetScrollView>
         </BottomSheet>
+        {activeTrip && (
+          <View style={styles.stopTripContainer}>
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={handleEndTrip} // <-- Tạo hàm này ở Bước 4
+            >
+              <Text style={styles.stopButtonText}>KẾT THÚC CHUYẾN ĐI</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -467,5 +594,24 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "bold",
   },
+  // ...
+  stopTripContainer: {
+    position: 'absolute',
+    bottom: 30, // Đặt vị trí bạn muốn
+    left: 20,
+    right: 20,
+  },
+  stopButton: {
+    backgroundColor: 'red',
+    padding: 15,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  stopButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  // ...
 });
 export default HomeScreen;
