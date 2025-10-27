@@ -71,6 +71,10 @@ const HomeScreen = () => {
   // Lấy trạng thái xác thực: Tránh gọi API khi chưa đăng nhập
   const { isSignedIn, isLoading: isAuthLoading } = useAuth();
 
+  // Biến kiểm tra
+  // Kiểm tra xem có activeTrip hay không && activeTrip có phải được bắt đầu bằng vehicle không
+  const isVehicleTrip = activeTrip && activeTrip.vehicle;
+
   // useMemo
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
 
@@ -197,7 +201,6 @@ const HomeScreen = () => {
   // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
   const handleCreateTripByVehicle = async (vehicleData) => {
     try {
-      // Xin quyền lấy ngay cả khi chạy nền
       let { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
@@ -224,6 +227,8 @@ const HomeScreen = () => {
         Alert.alert("Thành công", "Đã tạo chuyến đi!");
         // Gọi API và set lại activeTrip
         fetchActiveTrip();
+        // Lấy lại vị trí ngay tức thì (Tránh lỗi giao diện)
+        requestAndGetLocation();
       } else {
         Alert.alert("Lỗi", "Không thể tạo chuyến đi. Vui lòng thử lại.");
       }
@@ -233,6 +238,42 @@ const HomeScreen = () => {
     }
 
     bottomSheetRef.current?.snapToIndex(0);
+  };
+
+  // Hàm lấy vị trí của người dùng liên tục + chạy nền
+  const handleRequestBackgroundPermission = async () => {
+    let { status } = await Location.requestBackgroundPermissionsAsync();
+
+    if (status !== "granted") {
+      Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+      return;
+    }
+    const locationSubscription = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000, // 1 giây
+        distanceInterval: 10, // 10 mét
+      },
+      (newLocation) => {
+        // Hàm này được gọi liên tục với vị trí mới
+        setCurrentLocation(newLocation.coords);
+        // GHI LẠI ĐƯỜNG ĐI
+        // setPath((prevPath) => [...prevPath, newLocation.coords]);
+        // Tạo vùng mới
+      const newRegion = {
+        latitude: newLocation.coords.latitude,
+        longitude: newLocation.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.005,
+      };
+
+      // Ra lệnh cho bản đồ di chuyển tới
+      mapRef.current?.animateToRegion(newRegion, 1000); // 1000ms = 1 giây
+      },
+    );
+
+    // Để dừng theo dõi:
+    // locationSubscription.remove();
   };
 
   // Render item
@@ -249,7 +290,7 @@ const HomeScreen = () => {
           styles.vehicleItem,
 
           // Nếu item này bị vô hiệu hóa, VÀ nó không phải là item đang active, thì áp dụng style làm mờ nó đi
-          isDisabled && !isActive && styles.itemDisabled, 
+          isDisabled && !isActive && styles.itemDisabled,
           // Nếu item này chính là item đang active, thì áp dụng style làm nổi bật nó lên
           isActive && styles.itemActive,
         ]}
@@ -326,7 +367,14 @@ const HomeScreen = () => {
             title="Vị trí của bạn"
           >
             <View style={styles.myLocation}>
-              <Ionicons name="pin" size={24} color={COLORS.primary} />
+              {isVehicleTrip ? (
+                <Image
+                  source={{ uri: activeTrip.vehicle.vehicle_avatar.image }}
+                  style={{ width: 45, height: 45, borderRadius: 15 }}
+                />
+              ) : (
+                <Ionicons name="pin" size={24} color={COLORS.primary} />
+              )}
             </View>
           </Marker>
           {trips.map((trip) => (
@@ -359,19 +407,36 @@ const HomeScreen = () => {
               color={COLORS.primary}
             />
           </View>
-          {/* Nút nhấn để định lại vị trí bản thân ("Tìm tôi") */}
-          <TouchableOpacity
-            style={styles.recenterButton}
-            onPress={() => {
-              requestAndGetLocation();
-            }} // <-- Gọi hàm cập nhật lại vị trí
-          >
-            <Ionicons
-              name="locate-outline" // <-- Đổi icon
-              size={28}
-              color={COLORS.primary}
-            />
-          </TouchableOpacity>
+          <View style={styles.controlsContainer}>
+            {/* 3. Banner thông báo chạy nền (Bên trái) */}
+            {activeTrip && (
+              <TouchableOpacity
+                style={styles.bgPermissionBanner}
+                onPress={handleRequestBackgroundPermission} // <-- Tạo hàm này
+              >
+                <Ionicons name="warning-outline" size={20} color="#FFA000" />
+                <Text style={styles.bgPermissionText}>
+                  Chuyến đi sẽ dừng nếu tắt màn hình. Nhấn để cho phép chạy nền.
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 4. Nút "Tìm tôi" (Bên phải) */}
+            {/* Luôn hiển thị, nhưng đẩy sang phải */}
+            <TouchableOpacity
+              style={[
+                styles.recenterButton,
+                !activeTrip && { marginLeft: "auto" }, // Tự đẩy sang phải khi banner ẩn
+              ]}
+              onPress={requestAndGetLocation}
+            >
+              <Ionicons
+                name="locate-outline"
+                size={28}
+                color={COLORS.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
 
         {/* Sliding Bottom Panel (Danh sách phương tiện/phương thức di chuyển) */}
@@ -485,11 +550,33 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  // --- Cảnh báo về GPS chạy nền ---
+  controlsContainer: {
+    flexDirection: "row", // Sắp xếp theo hàng ngang
+    justifyContent: "space-between", // Đẩy 2 item ra 2 phía
+    alignItems: "center", // Căn giữa theo chiều dọc
+    marginTop: 10,
+  },
+  bgPermissionBanner: {
+    flex: 1, // Chiếm phần lớn không gian bên trái
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 160, 0, 0.1)", // Màu vàng nhạt
+    borderColor: "#FFA000",
+    borderWidth: 1,
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 10, // Khoảng cách với nút 📍
+  },
+  bgPermissionText: {
+    flex: 1, // Cho phép text tự xuống dòng
+    color: "#D97706", // Màu vàng đậm
+    fontSize: 12,
+    marginLeft: 5,
+  },
   // Nút tìm tôi
   recenterButton: {
     // dồn hết về phải && cách trên 10
-    alignSelf: "flex-end",
-    marginTop: 10,
     backgroundColor: COLORS.card,
     padding: 10,
     borderRadius: 50, // Bo tròn
