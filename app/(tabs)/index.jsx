@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
+import { Image } from "expo-image";
 import React, { useEffect, useState, useRef, useMemo } from "react";
 // Thư viện react nâng cao
 import {
@@ -29,9 +30,14 @@ import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 // API
 import { getMyVehicles } from "../../services/VehicleService";
 import { getTravelMethod } from "../../services/TravelMethodService";
-import { createTripByVehicle, getActiveTrip, endActiveTrip } from "../../services/TripService";
+import {
+  createTripByVehicle,
+  getActiveTrip,
+  endActiveTrip,
+} from "../../services/TripService";
 
-import { Image } from "expo-image";
+// Quản lý trạng thái đăng nhập
+import { useAuth } from "../../context/AuthContext";
 
 // Giao diện/Chức năng của màn hình Home
 const HomeScreen = () => {
@@ -62,45 +68,72 @@ const HomeScreen = () => {
   const [activeTrip, setActiveTrip] = useState(null);
   // Danh sách phương thức di chuyển
   const [travelMethod, setTravelMethod] = useState([]);
+  // Lấy trạng thái xác thực: Tránh gọi API khi chưa đăng nhập
+  const { isSignedIn, isLoading: isAuthLoading } = useAuth();
+
   // useMemo
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
+
   // Function
+  // 1. Lấy vị trí khi người dùng vừa vào app, chỉ yêu cầu 1 lần và không chạy nền
+  const requestAndGetLocation = async () => {
+    try {
+      if (!mapRef.current) {
+        return;
+      }
+
+      // hiển thị hộp thoại xin quyền
+      let { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        // Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+        return;
+      }
+
+      // Lấy vị trí hiện tại 1 lần duy nhất
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Lowest, // Chỉ cần tương đối để hiển thị lên giao diện
+        timeout: 5000, // Thêm timeout 5 giây
+      });
+
+      // Tạo vùng mới từ tọa độ GPS lấy được
+      const userRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.005,
+      };
+      setCurrentLocation(userRegion);
+
+      // Gán hiệu ứng cho mapRef
+      mapRef.current?.animateToRegion(userRegion, 1000);
+    } catch (error) {
+      console.error("Lỗi khi xin/lấy vị trí:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
+    }
+  };
+
+  // 5. Hàm gọi API lấy chuyến đi chưa kết thúc.
+  const fetchActiveTrip = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getActiveTrip();
+      if (data) {
+        setActiveTrip(data);
+      } else {
+        // Nếu mảng rỗng hoặc là null, gán activeTrip là null
+        setActiveTrip(null);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
+      setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // useEffect: Chỉ chạy 1 lần duy nhất
   useEffect(() => {
-    // 1. Lấy vị trí khi người dùng vừa vào app, chỉ yêu cầu 1 lần và không chạy nền
-    const requestAndGetLocation = async () => {
-      try {
-        // hiển thị hộp thoại xin quyền
-        let { status } = await Location.requestForegroundPermissionsAsync();
-
-        if (status !== "granted") {
-          // Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
-          return;
-        }
-
-        // Lấy vị trí hiện tại 1 lần duy nhất
-        let location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Lowest, // Chỉ cần tương đối để hiển thị lên giao diện
-          timeout: 5000, // Thêm timeout 5 giây
-        });
-
-        // Tạo vùng mới từ tọa độ GPS lấy được
-        const userRegion = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.005,
-        };
-        setCurrentLocation(userRegion);
-
-        // Gán hiệu ứng cho mapRef
-        mapRef.current?.animateToRegion(userRegion, 1000);
-      } catch (error) {
-        console.error("Lỗi khi xin/lấy vị trí:", error);
-        Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
-      }
-    };
     // 2. Lấy danh sách chuyến đi đã thực hiện
     const fetchTrips = async () => {
       setTrips([
@@ -151,39 +184,31 @@ const HomeScreen = () => {
       }
     };
 
-    requestAndGetLocation();
-    fetchTrips();
-    fetchVehicles();
-    fetchTravelMethod();
+    if (!isAuthLoading && isSignedIn) {
+      fetchTrips();
+      fetchVehicles();
+      fetchTravelMethod();
+      fetchActiveTrip();
+    }
   }, []); // Chỉ chạy 1 lần
 
   // Handle
+
   // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
   const handleCreateTripByVehicle = async (vehicleData) => {
     try {
       // Xin quyền lấy ngay cả khi chạy nền
-      let { status } = await Location.requestBackgroundPermissionsAsync();
+      let { status } = await Location.requestForegroundPermissionsAsync();
+
       if (status !== "granted") {
-        Alert.alert("Lỗi", "Quyền truy cập vị trí liên tục đã bị từ chối.");
-        return; // Dừng lại
+        Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+        return;
       }
 
-      const locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000, // 1 giây
-          distanceInterval: 10, // 10 mét
-        },
-        (newLocation) => {
-          // Hàm này được gọi liên tục với vị trí mới
-          // (newLocation.coords.latitude, ...)
-          console.log(newLocation);
-          
-        },
-      );
-
-      // Để dừng theo dõi:
-      // locationSubscription.remove();
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation, // Cần chính xác cao nhất có thể để lưu db
+        timeout: 1000, // Thêm timeout 1 giây
+      });
 
       // Tạo dữ liệu chuyến đi
       const data = {
@@ -197,7 +222,8 @@ const HomeScreen = () => {
 
       if (result) {
         Alert.alert("Thành công", "Đã tạo chuyến đi!");
-        // fetchActiveTrip();
+        // Gọi API và set lại activeTrip
+        fetchActiveTrip();
       } else {
         Alert.alert("Lỗi", "Không thể tạo chuyến đi. Vui lòng thử lại.");
       }
@@ -212,19 +238,20 @@ const HomeScreen = () => {
   // Render item
   // --- Hàm Render cho FlatList Xe ---
   const renderVehicleItem = ({ item }) => {
-    // 1. Kiểm tra xem item này có đang active không
+    // 1. Kiểm tra xem vehicle này có đang phải là xe đang Trip không
     const isActive = activeTrip && activeTrip.vehicle?.id === item.id;
-    // 2. Kiểm tra xem nút có bị vô hiệu hóa không
-    // (Bất kỳ chuyến đi nào đang active cũng sẽ vô hiệu hóa TẤT CẢ)
+    // 2. activeTrip đang có giá trị thì gán bằng True
     const isDisabled = activeTrip != null;
 
     return (
       <TouchableOpacity
         style={[
           styles.vehicleItem,
-          // 3. Áp dụng style phụ
-          isDisabled && !isActive && styles.itemDisabled, // Nếu item này bị vô hiệu hóa, VÀ nó không phải là item đang active, thì áp dụng style làm mờ nó đi
-          isActive && styles.itemActive, // Nếu item này chính là item đang active, thì áp dụng style làm nổi bật nó lên
+
+          // Nếu item này bị vô hiệu hóa, VÀ nó không phải là item đang active, thì áp dụng style làm mờ nó đi
+          isDisabled && !isActive && styles.itemDisabled, 
+          // Nếu item này chính là item đang active, thì áp dụng style làm nổi bật nó lên
+          isActive && styles.itemActive,
         ]}
         onLongPress={() => handleCreateTripByVehicle(item)}
         delayLongPress={DELAY_LONG_PRESS}
@@ -332,7 +359,21 @@ const HomeScreen = () => {
               color={COLORS.primary}
             />
           </View>
+          {/* Nút nhấn để định lại vị trí bản thân ("Tìm tôi") */}
+          <TouchableOpacity
+            style={styles.recenterButton}
+            onPress={() => {
+              requestAndGetLocation();
+            }} // <-- Gọi hàm cập nhật lại vị trí
+          >
+            <Ionicons
+              name="locate-outline" // <-- Đổi icon
+              size={28}
+              color={COLORS.primary}
+            />
+          </TouchableOpacity>
         </SafeAreaView>
+
         {/* Sliding Bottom Panel (Danh sách phương tiện/phương thức di chuyển) */}
         <BottomSheet
           ref={bottomSheetRef}
@@ -444,6 +485,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  // Nút tìm tôi
+  recenterButton: {
+    // dồn hết về phải && cách trên 10
+    alignSelf: "flex-end",
+    marginTop: 10,
+    backgroundColor: COLORS.card,
+    padding: 10,
+    borderRadius: 50, // Bo tròn
+    // Thêm bóng đổ (shadow) cho đẹp
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   // Liên quan tới Bottom Sheet
   handleBar: {
     width: 40,
@@ -471,7 +527,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     textAlign: "center",
   },
-  // Style cho danh sách xe
+  // Style cho container của 1 phương tiện/phương thức
   vehicleItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -488,6 +544,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
     backgroundColor: COLORS.border,
   },
+  // Container cho Name/Plate
   vehicleInfo: {
     flex: 1,
   },
@@ -496,14 +553,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.text,
   },
+  // Biển số xe/metadata
   vehiclePlate: {
     fontSize: 14,
     color: COLORS.textLight,
     marginTop: 4,
   },
+  // Nếu không có xe nào thì
   emptyText: {
     color: COLORS.textLight,
     textAlign: "center",
     marginTop: 20,
+  },
+  // Style cho danh sách xe (khi bị vô hiệu hoá, không phải active)
+  itemDisabled: {
+    opacity: 0.4,
+  },
+  itemActive: {
+    backgroundColor: COLORS.primary, // Nền màu chính
+    borderColor: COLORS.border, // Viền màu chính
+    borderWidth: 1,
   },
 });
