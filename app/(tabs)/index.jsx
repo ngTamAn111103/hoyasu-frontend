@@ -60,18 +60,24 @@ const HomeScreen = () => {
   const [currentLocation, setCurrentLocation] = useState(INITIAL_REGION);
   // Danh sách chuyến đi người dùng đã di chuyển
   const [trips, setTrips] = useState([]);
-  // Trạng thái loading
-  const [isLoading, setIsLoading] = useState(false);
   // Danh sách phương tiện cá nhân
   const [vehicles, setVehicles] = useState([]);
   // Danh sách (only 1) chuyến đi chưa kết thúc
   const [activeTrip, setActiveTrip] = useState(null);
   // Danh sách phương thức di chuyển
   const [travelMethod, setTravelMethod] = useState([]);
+
   // Lấy trạng thái xác thực: Tránh gọi API khi chưa đăng nhập
   const { isSignedIn, isLoading: isAuthLoading } = useAuth();
 
-  // Biến kiểm tra
+  // Trạng thái lấy API vehicle
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
+  // Trạng thái lấy API travel method
+  const [isLoadingMethods, setIsLoadingMethods] = useState(false);
+  // Trạng thái lấy API chuyến đi đang thực hiện
+  const [isLoadingActiveTrip, setIsLoadingActiveTrip] = useState(false);
+  // Trạng thái đang lấy GPS
+  const [isLoadingGPS, setIsLoadingGPS] = useState(false);
   // Kiểm tra xem có activeTrip hay không && activeTrip có phải được bắt đầu bằng vehicle không
   const isVehicleTrip = activeTrip && activeTrip.vehicle;
 
@@ -81,6 +87,7 @@ const HomeScreen = () => {
   // Function
   // 1. Lấy vị trí khi người dùng vừa vào app, chỉ yêu cầu 1 lần và không chạy nền
   const requestAndGetLocation = async () => {
+    setIsLoadingGPS(true);
     try {
       if (!mapRef.current) {
         return;
@@ -114,12 +121,14 @@ const HomeScreen = () => {
     } catch (error) {
       console.error("Lỗi khi xin/lấy vị trí:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
+    } finally {
+      setIsLoadingGPS(false);
     }
   };
 
   // 5. Hàm gọi API lấy chuyến đi chưa kết thúc.
   const fetchActiveTrip = async () => {
-    setIsLoading(true);
+    setIsLoadingActiveTrip(true);
     try {
       const data = await getActiveTrip();
       if (data) {
@@ -132,7 +141,7 @@ const HomeScreen = () => {
       console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
       setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
     } finally {
-      setIsLoading(false);
+      setIsLoadingActiveTrip(false);
     }
   };
 
@@ -158,7 +167,7 @@ const HomeScreen = () => {
     };
     // 3. Hàm gọi API danh sách xe cá nhân
     const fetchVehicles = async () => {
-      setIsLoading(true);
+      setIsLoadingVehicles(true);
       try {
         const data = await getMyVehicles();
         if (data) {
@@ -167,12 +176,12 @@ const HomeScreen = () => {
       } catch (error) {
         console.error("Lỗi khi tải danh sách xe:", error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingVehicles(false);
       }
     };
     // 4. Hàm gọi API danh sách các phương tiện di chuyển (Xe buýt, Taxi, máy bay, ...).
     const fetchTravelMethod = async () => {
-      setIsLoading(true);
+      setIsLoadingMethods(true);
       try {
         const data = await getTravelMethod();
         if (data) {
@@ -184,7 +193,7 @@ const HomeScreen = () => {
           error,
         );
       } finally {
-        setIsLoading(false);
+        setIsLoadingMethods(false);
       }
     };
 
@@ -260,15 +269,15 @@ const HomeScreen = () => {
         // GHI LẠI ĐƯỜNG ĐI
         // setPath((prevPath) => [...prevPath, newLocation.coords]);
         // Tạo vùng mới
-      const newRegion = {
-        latitude: newLocation.coords.latitude,
-        longitude: newLocation.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.005,
-      };
+        const newRegion = {
+          latitude: newLocation.coords.latitude,
+          longitude: newLocation.coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.005,
+        };
 
-      // Ra lệnh cho bản đồ di chuyển tới
-      mapRef.current?.animateToRegion(newRegion, 1000); // 1000ms = 1 giây
+        // Ra lệnh cho bản đồ di chuyển tới
+        mapRef.current?.animateToRegion(newRegion, 1000); // 1000ms = 1 giây
       },
     );
 
@@ -407,6 +416,7 @@ const HomeScreen = () => {
               color={COLORS.primary}
             />
           </View>
+
           <View style={styles.controlsContainer}>
             {/* 3. Banner thông báo chạy nền (Bên trái) */}
             {activeTrip && (
@@ -438,7 +448,13 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-
+        {isLoadingGPS && (
+          <ActivityIndicator
+            size="large"
+            color={COLORS.primary}
+            style={{ position: "absolute", top: "50%", left: "50%" }}
+          />
+        )}
         {/* Sliding Bottom Panel (Danh sách phương tiện/phương thức di chuyển) */}
         <BottomSheet
           ref={bottomSheetRef}
@@ -454,7 +470,7 @@ const HomeScreen = () => {
         >
           <BottomSheetScrollView style={styles.scrollContainer}>
             <Text style={styles.panelTitle}>Xe của tôi</Text>
-            {isLoading ? (
+            {isLoadingVehicles ? (
               <ActivityIndicator
                 size="large"
                 color={COLORS.primary}
@@ -475,7 +491,7 @@ const HomeScreen = () => {
             <Text style={styles.panelTitle}>Phương thức khác</Text>
 
             {/* Logic hiển thị loading hoặc danh sách */}
-            {isLoading ? (
+            {isLoadingMethods ? (
               <ActivityIndicator
                 size="large"
                 color={COLORS.primary}
