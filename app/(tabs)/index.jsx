@@ -468,22 +468,35 @@ const HomeScreen = () => {
           // Custom style cho bản đồ để phù hợp với theme
           // customMapStyle={mapStyle} // Sẽ thêm sau
         >
-          <Marker
-            key="myLocation"
-            coordinate={currentLocation}
-            title="Vị trí của bạn"
-          >
-            <View style={styles.myLocation}>
-              {isVehicleTrip ? (
+
+          {/* Marker 1: Hiển thị khi KHÔNG có chuyến đi xe */}
+          {!isVehicleTrip && (
+            <Marker
+              key="myLocation-pin" // Thêm key riêng
+              coordinate={currentLocation}
+              title="Vị trí của bạn"
+            >
+              <View style={styles.myLocation}>
+                <Ionicons name="pin" size={24} color={COLORS.primary} />
+              </View>
+            </Marker>
+          )}
+
+          {/* Marker 2: Hiển thị khi CÓ chuyến đi xe */}
+          {isVehicleTrip && (
+            <Marker
+              key="myLocation-vehicle" // Thêm key riêng
+              coordinate={currentLocation}
+              title="Vị trí của bạn" // Bạn có thể đổi title thành activeTrip.vehicle.name
+            >
+              <View style={styles.myLocation}>
                 <Image
                   source={{ uri: activeTrip.vehicle.vehicle_avatar.image }}
                   style={{ width: 45, height: 45, borderRadius: 15 }}
                 />
-              ) : (
-                <Ionicons name="pin" size={24} color={COLORS.primary} />
-              )}
-            </View>
-          </Marker>
+              </View>
+            </Marker>
+          )}
           {trips.map((trip) => (
             <Marker
               key={trip.id}
