@@ -44,22 +44,28 @@ import { useAuth } from "../../context/AuthContext";
 // Giao diện/Chức năng của màn hình Home
 const HomeScreen = () => {
   // HẰNG SỐ
+  const LATITUDE_DELTA = 0.01;
+  const LONGITUDE_DELTA = 0.005;
   // Toạ độ mặc định khi vừa render MapView
   let INITIAL_REGION = {
     latitude: 10.851548396166965,
     longitude: 106.75812846725613,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
+    latitudeDelta: LATITUDE_DELTA,
+    longitudeDelta: LONGITUDE_DELTA,
   };
   const DELAY_LONG_PRESS = 500;
 
   // useRef
   const mapRef = useRef(null);
   const bottomSheetRef = useRef(null);
+  const locationSubscriptionRef = useRef(null);
 
   // useState
   // Vị trí lấy 1 lần duy nhất, khi người dùng vào app
-  const [currentLocation, setCurrentLocation] = useState(INITIAL_REGION);
+  const [currentLocation, setCurrentLocation] = useState({
+    latitude: INITIAL_REGION.latitude,
+    longitude: INITIAL_REGION.longitude,
+  });
   // Danh sách chuyến đi người dùng đã di chuyển
   const [trips, setTrips] = useState([]);
   // Danh sách phương tiện cá nhân
@@ -184,6 +190,7 @@ const HomeScreen = () => {
 
       if (status !== "granted") {
         // Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+        setIsLoadingGPS(false);
         return;
       }
       setIsLoadingGPS(true);
@@ -193,17 +200,17 @@ const HomeScreen = () => {
         timeout: 1000, // Thêm timeout 5 giây
       });
 
-      // Tạo vùng mới từ tọa độ GPS lấy được
-      const userRegion = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.005,
-      };
-      setCurrentLocation(userRegion);
+      // Tạo tọa độ (2-key) và vùng (4-key)
+      const userCoord = location.coords;
+      setCurrentLocation(userCoord); // <-- SỬA: Set toạ độ (2-key)
 
-      // Gán hiệu ứng cho mapRef
-      mapRef.current?.animateToRegion(userRegion, 1000);
+      const userRegion = {
+        latitude: userCoord.latitude,
+        longitude: userCoord.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      };
+      mapRef.current?.animateToRegion(userRegion, 1000); // Vẫn animate bằng Vùng (4-key)
     } catch (error) {
       console.error("Lỗi khi xin/lấy vị trí:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
@@ -223,12 +230,13 @@ const HomeScreen = () => {
           "Không thể tạo chuyến đi",
           "Quyền truy cập vị trí đã bị từ chối.",
         );
+        setIsGPSBackground(false);
         return;
       }
       setIsLoadingGPS(true);
       let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation, // Cần chính xác cao nhất có thể để lưu db
-        timeout: 5000, // Thêm timeout 1 giây
+        accuracy: Location.Accuracy.High,
+        timeout: 5000,
       });
 
       // Tạo dữ liệu chuyến đi
@@ -242,18 +250,19 @@ const HomeScreen = () => {
       const result = await createTripByVehicle(data);
 
       if (result) {
-        // Gọi API và set lại activeTrip
         fetchActiveTrip();
-        // Cập nhật lại vị trí ngay tức thì
+
+        const userCoord = location.coords;
+        setCurrentLocation(userCoord); // <-- SỬA: Set toạ độ (2-key)
+
         const userRegion = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.005,
+          latitude: userCoord.latitude,
+          longitude: userCoord.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
         };
-        setCurrentLocation(userRegion);
-        // Gán hiệu ứng cho mapRef để bản đồ bay tới vị trí start trip
-        mapRef.current?.animateToRegion(userRegion, 1000);
+        mapRef.current?.animateToRegion(userRegion, 1000); // Animate bằng Vùng (4-key)
+
         Alert.alert("Thành công", "Đã tạo chuyến đi!");
       } else {
         Alert.alert("Lỗi", "Không thể tạo chuyến đi. Vui lòng thử lại.");
@@ -277,7 +286,7 @@ const HomeScreen = () => {
     }
     // Đã nhận được GPS background -> Ẩn banner đi
     setIsGPSBackground(true);
-    const locationSubscription = await Location.watchPositionAsync(
+    locationSubscriptionRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
         // timeInterval: 1000, // 1 giây
@@ -285,9 +294,7 @@ const HomeScreen = () => {
       },
       // Ghi lại hành trình chuyến đi
       async (newLocation) => {
-        console.log(newLocation);
-
-        // 1. Cập nhật UI (vị trí, đường đi, bản đồ)
+        // 1. Cập nhật lại vị trí hiện tại của bản thân
         setCurrentLocation(newLocation.coords);
 
         const newCoord = {
@@ -300,8 +307,8 @@ const HomeScreen = () => {
         const newRegion = {
           latitude: newCoord.latitude,
           longitude: newCoord.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.005,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
         };
 
         mapRef.current?.animateToRegion(newRegion, 1000);
@@ -332,6 +339,48 @@ const HomeScreen = () => {
 
     // Để dừng theo dõi:
     // locationSubscription.remove();
+  };
+
+  // Handle kết thúc chuyến đi
+  const handleEndTrip = async () => {
+    // Nếu không có chuyến đi nào hiện tại || không lấy được vị trí hiện tại
+    if (!activeTrip || !currentLocation) {
+      return;
+    }
+    // Ngừng theo dõi GPS ngay lập tức để không có tọa độ nào bị lọt.
+    locationSubscriptionRef.current?.remove();
+    locationSubscriptionRef.current = null;
+    try {
+      // Tạo biến json để gửi tới API
+      const endData = {
+        // 1. Dùng toFixed(6) cho vĩ độ (latitude)
+        end_latitude: parseFloat(currentLocation.latitude.toFixed(6)),
+
+        // 2. Dùng toFixed(7) cho kinh độ (longitude)
+        end_longitude: parseFloat(currentLocation.longitude.toFixed(6)),
+
+        end_time: new Date().toISOString(),
+        total_distance: 10,
+      };
+      const result = await endActiveTrip(activeTrip.id, endData);
+
+      if (result) {
+        // DỌN DẸP STATE
+        setActiveTrip(null);
+        setPath([]); // Xóa đường vẽ
+        setIsGPSBackground(false);
+        const userRegion = {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        };
+        mapRef.current?.animateToRegion(userRegion, 1000);
+        Alert.alert("Đã kết thúc", "Chuyến đi của bạn đã được lưu.");
+      }
+    } catch (error) {
+      console.error("Lỗi khi kết thúc chuyến đi - handleEndTrip: ", error);
+    }
   };
 
   // Render item
@@ -503,6 +552,18 @@ const HomeScreen = () => {
             style={{ position: "absolute", top: "50%", left: "50%" }}
           />
         )}
+
+        {/* Nút kết thúc chuyến đi */}
+        {activeTrip && (
+          <View style={styles.stopTripContainer}>
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={handleEndTrip} // <-- Tạo hàm này ở Bước 4
+            >
+              <Text style={styles.stopButtonText}>KẾT THÚC CHUYẾN ĐI</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Sliding Bottom Panel (Danh sách phương tiện/phương thức di chuyển) */}
         <BottomSheet
           ref={bottomSheetRef}
@@ -651,6 +712,24 @@ const styles = StyleSheet.create({
     elevation: 5,
     //
     marginLeft: "auto",
+  },
+  // Nút kết thúc chuyến đi
+  stopTripContainer: {
+    position: "absolute",
+    bottom: 100, // Đặt vị trí bạn muốn
+    left: 20,
+    right: 20,
+  },
+  stopButton: {
+    backgroundColor: "red",
+    padding: 15,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  stopButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   // Liên quan tới Bottom Sheet
   handleBar: {

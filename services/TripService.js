@@ -44,8 +44,6 @@ export const endActiveTrip = async (tripId, endData) => {
       console.log("Không tìm thấy token - endActiveTrip");
       return null;
     }
-    console.log(`${TRIP_URL}${tripId}/`);
-    console.log(JSON.stringify(endData));
 
     
     const response = await fetch(`${TRIP_URL}${tripId}/`, {
@@ -61,6 +59,8 @@ export const endActiveTrip = async (tripId, endData) => {
       console.error("Lỗi API khi kết thúc chuyến đi bằng vehicle - endActiveTrip:", errorData);
       throw new Error("Lỗi từ server: " + response.status);
     }
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error("Đã xảy ra lỗi trong hàm endActiveTrip:", error);
     return null;
