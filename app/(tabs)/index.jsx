@@ -1,14 +1,14 @@
 // Thư viện react cơ bản
+import { Image } from "expo-image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   StyleSheet,
   Text,
-  View,
-  ActivityIndicator,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { Image } from "expo-image";
-import React, { useEffect, useState, useRef, useMemo } from "react";
 // Thư viện react nâng cao
 import {
   FlatList,
@@ -16,8 +16,8 @@ import {
   TextInput,
 } from "react-native-gesture-handler";
 // Bản đồ
-import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
+import MapView, { Marker, Polyline } from "react-native-maps";
 
 // Color
 import { COLORS } from "../../constant/color";
@@ -28,13 +28,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
 // API
-import { getMyVehicles } from "../../services/VehicleService";
 import { getTravelMethod } from "../../services/TravelMethodService";
 import {
   createTripByVehicle,
-  getActiveTrip,
   endActiveTrip,
+  getActiveTrip,
 } from "../../services/TripService";
+import { getMyVehicles } from "../../services/VehicleService";
 
 import { addTripCoordinate } from "../../services/TripCoordinatesService";
 
@@ -97,7 +97,60 @@ const HomeScreen = () => {
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
 
   // Function
+  // Hàm này giả định đã CÓ quyền
+  const startBackgroundTracking = async () => {
+    // Đã nhận được GPS background -> Ẩn banner đi
+    setIsGPSBackground(true);
 
+    locationSubscriptionRef.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 50,
+      },
+      // Ghi lại hành trình chuyến đi (Callback)
+      async (newLocation) => {
+        // 1. Cập nhật lại vị trí hiện tại của bản thân
+        setCurrentLocation(newLocation.coords);
+
+        const newCoord = {
+          latitude: newLocation.coords.latitude,
+          longitude: newLocation.coords.longitude,
+        };
+        setPath((prevPath) => [...prevPath, newCoord]);
+
+        const newRegion = {
+          latitude: newCoord.latitude,
+          longitude: newCoord.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        };
+
+        mapRef.current?.animateToRegion(newRegion, 1000);
+
+        // 2. Gửi dữ liệu về Backend (Tác vụ nền)
+        // MỚI: Phải kiểm tra xem activeTrip có ID không
+        if (activeTrip && activeTrip.id) {
+          try {
+            // Chuẩn bị dữ liệu gửi đi
+            const coordinateData = {
+              latitude: parseFloat(newCoord.latitude.toFixed(6)),
+              longitude: parseFloat(newCoord.longitude.toFixed(6)),
+              trip: activeTrip.id,
+            };
+
+            // Gọi API
+            // Quan trọng: Chúng ta "không await" ở đây.
+            // Đây là kiểu "Fire and Forget" (Bắn và Quên)
+            addTripCoordinate(coordinateData);
+          } catch (error) {
+            // TUYỆT ĐỐI KHÔNG Alert.alert ở đây
+            // Vì nó sẽ hiện thông báo lỗi mỗi giây nếu mất mạng
+            console.error("Lỗi khi gửi tọa độ về server:", error);
+          }
+        }
+      },
+    );
+  };
   // 5. Hàm gọi API lấy chuyến đi chưa kết thúc.
   const fetchActiveTrip = async () => {
     setIsLoadingActiveTrip(true);
@@ -137,6 +190,7 @@ const HomeScreen = () => {
         },
       ]);
     };
+
     // 3. Hàm gọi API danh sách xe cá nhân
     const fetchVehicles = async () => {
       setIsLoadingVehicles(true);
@@ -177,6 +231,24 @@ const HomeScreen = () => {
     }
   }, []); // Chỉ chạy 1 lần
 
+  // UseEffect: Lắng nghe
+  useEffect(() => {
+    if (activeTrip) {
+      const checkPermissionAndStart = async () => {
+        const { status } = await Location.getBackgroundPermissionsAsync();
+
+        if (status === "granted") {
+          // Dòng này sẽ được gọi ngay lập tức
+          await startBackgroundTracking();
+        } else {
+          // Dòng này sẽ chạy nếu người dùng từ chối ở handleCreateTripByVehicle
+          setIsGPSBackground(false);
+        }
+      };
+      checkPermissionAndStart();
+    }
+  }, [activeTrip]);
+
   // Handle
   // 1. Lấy vị trí khi người dùng nhấn vào nút Tìm tôi, chỉ yêu cầu 1 lần và không chạy nền
   const handleFindMyLocation = async () => {
@@ -202,7 +274,7 @@ const HomeScreen = () => {
 
       // Tạo tọa độ (2-key) và vùng (4-key)
       const userCoord = location.coords;
-      setCurrentLocation(userCoord); // <-- SỬA: Set toạ độ (2-key)
+      setCurrentLocation(userCoord);
 
       const userRegion = {
         latitude: userCoord.latitude,
@@ -222,18 +294,18 @@ const HomeScreen = () => {
   const handleCreateTripByVehicle = async (vehicleData) => {
     bottomSheetRef.current?.snapToIndex(0);
     try {
-      // Lấy vị trí khi người dùng bắt đầu chuyến đi, chỉ yêu cầu 1 lần và không chạy nền
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      // Thông báo ra cho người dùng -> Không thể tạo chuyến đi
+      // Hỏi quyền chạy nền (đã bao gồm cả quyền foreground)
+      let { status } = await Location.requestBackgroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Không thể tạo chuyến đi",
-          "Quyền truy cập vị trí đã bị từ chối.",
+          "Chuyến đi cần quyền truy cập vị trí chạy nền để hoạt động.",
         );
-        setIsGPSBackground(false);
+        setIsGPSBackground(false); // Đảm bảo banner sẽ hiện nếu họ từ chối
         return;
       }
-      setIsLoadingGPS(true);
+      // Nếu đã được cấp quyền, set isGPSBackground là true
+      setIsGPSBackground(true);
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeout: 5000,
@@ -253,7 +325,7 @@ const HomeScreen = () => {
         fetchActiveTrip();
 
         const userCoord = location.coords;
-        setCurrentLocation(userCoord); // <-- SỬA: Set toạ độ (2-key)
+        setCurrentLocation(userCoord);
 
         const userRegion = {
           latitude: userCoord.latitude,
@@ -276,69 +348,20 @@ const HomeScreen = () => {
   };
 
   // Hàm lấy vị trí của người dùng liên tục + chạy nền
-  const handleRequestBackgroundPermission = async () => {
+  // CHỈ DÙNG KHI NHẤN BANNER
+  const handlePressBanner = async () => {
+    // 1. Xin quyền (hiện popup)
     let { status } = await Location.requestBackgroundPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
-      setIsGPSBackground(false);
+      Alert.alert("Không thể tiếp tục chuyến đi",
+          "Chuyến đi cần quyền truy cập vị trí chạy nền để hoạt động.",);
+      setIsGPSBackground(false); // Vẫn hiện banner nếu từ chối
       return;
     }
-    // Đã nhận được GPS background -> Ẩn banner đi
-    setIsGPSBackground(true);
-    locationSubscriptionRef.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        // timeInterval: 1000, // 1 giây
-        distanceInterval: 50, // 10 mét
-      },
-      // Ghi lại hành trình chuyến đi
-      async (newLocation) => {
-        // 1. Cập nhật lại vị trí hiện tại của bản thân
-        setCurrentLocation(newLocation.coords);
 
-        const newCoord = {
-          latitude: newLocation.coords.latitude,
-          longitude: newLocation.coords.longitude,
-        };
-
-        setPath((prevPath) => [...prevPath, newCoord]);
-
-        const newRegion = {
-          latitude: newCoord.latitude,
-          longitude: newCoord.longitude,
-          latitudeDelta: LATITUDE_DELTA,
-          longitudeDelta: LONGITUDE_DELTA,
-        };
-
-        mapRef.current?.animateToRegion(newRegion, 1000);
-
-        // 2. Gửi dữ liệu về Backend (Tác vụ nền)
-        // MỚI: Phải kiểm tra xem activeTrip có ID không
-        if (activeTrip && activeTrip.id) {
-          try {
-            // Chuẩn bị dữ liệu gửi đi
-            const coordinateData = {
-              latitude: parseFloat(newCoord.latitude.toFixed(6)),
-              longitude: parseFloat(newCoord.longitude.toFixed(6)),
-              trip: activeTrip.id,
-            };
-
-            // Gọi API
-            // Quan trọng: Chúng ta "không await" ở đây.
-            // Đây là kiểu "Fire and Forget" (Bắn và Quên)
-            addTripCoordinate(coordinateData);
-          } catch (error) {
-            // TUYỆT ĐỐI KHÔNG Alert.alert ở đây
-            // Vì nó sẽ hiện thông báo lỗi mỗi giây nếu mất mạng
-            console.error("Lỗi khi gửi tọa độ về server:", error);
-          }
-        }
-      },
-    );
-
-    // Để dừng theo dõi:
-    // locationSubscription.remove();
+    // 2. Nếu thành công, gọi hàm tracking
+    await startBackgroundTracking();
   };
 
   // Handle kết thúc chuyến đi
@@ -468,7 +491,6 @@ const HomeScreen = () => {
           // Custom style cho bản đồ để phù hợp với theme
           // customMapStyle={mapStyle} // Sẽ thêm sau
         >
-
           {/* Marker 1: Hiển thị khi KHÔNG có chuyến đi xe */}
           {!isVehicleTrip && (
             <Marker
@@ -534,7 +556,7 @@ const HomeScreen = () => {
             {activeTrip && !isGPSBackground && (
               <TouchableOpacity
                 style={styles.bgPermissionBanner}
-                onPress={handleRequestBackgroundPermission} // <-- Tạo hàm này
+                onPress={handlePressBanner} // <-- Tạo hàm này
               >
                 <Ionicons name="warning-outline" size={20} color="#FFA000" />
                 <Text style={styles.bgPermissionText}>
