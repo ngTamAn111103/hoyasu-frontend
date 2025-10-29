@@ -20,3 +20,6 @@ export const TRAVEL_METHOD_URL = `${API_BASE_URL}api/travel-methods/`;
 // ----------------------------------
 // API Trips
 export const TRIP_URL = `${API_BASE_URL}api/trips/`;
+// -------------------------
+// API TRIP_COORDINATES (Hành trình chuyến đi)
+export const TRIP_COORDINATES_URL = `${API_BASE_URL}api/trip-coordinates/`

@@ -16,7 +16,7 @@ import {
   TextInput,
 } from "react-native-gesture-handler";
 // Bản đồ
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
 
 // Color
@@ -35,6 +35,8 @@ import {
   getActiveTrip,
   endActiveTrip,
 } from "../../services/TripService";
+
+import { addTripCoordinate } from "../../services/TripCoordinatesService";
 
 // Quản lý trạng thái đăng nhập
 import { useAuth } from "../../context/AuthContext";
@@ -64,6 +66,8 @@ const HomeScreen = () => {
   const [vehicles, setVehicles] = useState([]);
   // Danh sách (only 1) chuyến đi chưa kết thúc
   const [activeTrip, setActiveTrip] = useState(null);
+  // State để vẽ đường đi
+  const [path, setPath] = useState([]);
   // Danh sách phương thức di chuyển
   const [travelMethod, setTravelMethod] = useState([]);
 
@@ -78,6 +82,8 @@ const HomeScreen = () => {
   const [isLoadingActiveTrip, setIsLoadingActiveTrip] = useState(false);
   // Trạng thái đang lấy GPS
   const [isLoadingGPS, setIsLoadingGPS] = useState(false);
+  // Trạng thái lấy GPS background nền -> Để ẩn banner đi
+  const [isGPSBackground, setIsGPSBackground] = useState(false);
   // Kiểm tra xem có activeTrip hay không && activeTrip có phải được bắt đầu bằng vehicle không
   const isVehicleTrip = activeTrip && activeTrip.vehicle;
 
@@ -85,46 +91,6 @@ const HomeScreen = () => {
   const snapPoints = useMemo(() => ["10%", "50%", "75%"], []);
 
   // Function
-  // 1. Lấy vị trí khi người dùng vừa vào app, chỉ yêu cầu 1 lần và không chạy nền
-  const requestAndGetLocation = async () => {
-    setIsLoadingGPS(true);
-    try {
-      if (!mapRef.current) {
-        return;
-      }
-
-      // hiển thị hộp thoại xin quyền
-      let { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        // Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
-        return;
-      }
-
-      // Lấy vị trí hiện tại 1 lần duy nhất
-      let location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Lowest, // Chỉ cần tương đối để hiển thị lên giao diện
-        timeout: 5000, // Thêm timeout 5 giây
-      });
-
-      // Tạo vùng mới từ tọa độ GPS lấy được
-      const userRegion = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.005,
-      };
-      setCurrentLocation(userRegion);
-
-      // Gán hiệu ứng cho mapRef
-      mapRef.current?.animateToRegion(userRegion, 1000);
-    } catch (error) {
-      console.error("Lỗi khi xin/lấy vị trí:", error);
-      Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
-    } finally {
-      setIsLoadingGPS(false);
-    }
-  };
 
   // 5. Hàm gọi API lấy chuyến đi chưa kết thúc.
   const fetchActiveTrip = async () => {
@@ -206,20 +172,63 @@ const HomeScreen = () => {
   }, []); // Chỉ chạy 1 lần
 
   // Handle
-
-  // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
-  const handleCreateTripByVehicle = async (vehicleData) => {
+  // 1. Lấy vị trí khi người dùng nhấn vào nút Tìm tôi, chỉ yêu cầu 1 lần và không chạy nền
+  const handleFindMyLocation = async () => {
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+      if (!mapRef.current) {
         return;
       }
 
+      // hiển thị hộp thoại xin quyền
+      let { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        // Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+        return;
+      }
+      setIsLoadingGPS(true);
+      // Lấy vị trí hiện tại 1 lần duy nhất
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Lowest, // Chỉ cần tương đối để hiển thị lên giao diện
+        timeout: 1000, // Thêm timeout 5 giây
+      });
+
+      // Tạo vùng mới từ tọa độ GPS lấy được
+      const userRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.005,
+      };
+      setCurrentLocation(userRegion);
+
+      // Gán hiệu ứng cho mapRef
+      mapRef.current?.animateToRegion(userRegion, 1000);
+    } catch (error) {
+      console.error("Lỗi khi xin/lấy vị trí:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi khi lấy vị trí.");
+    } finally {
+      setIsLoadingGPS(false);
+    }
+  };
+  // Handle xử lý Long Press (nhấn giữ) của các phương tiện cá nhân (vehicle)
+  const handleCreateTripByVehicle = async (vehicleData) => {
+    bottomSheetRef.current?.snapToIndex(0);
+    try {
+      // Lấy vị trí khi người dùng bắt đầu chuyến đi, chỉ yêu cầu 1 lần và không chạy nền
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      // Thông báo ra cho người dùng -> Không thể tạo chuyến đi
+      if (status !== "granted") {
+        Alert.alert(
+          "Không thể tạo chuyến đi",
+          "Quyền truy cập vị trí đã bị từ chối.",
+        );
+        return;
+      }
+      setIsLoadingGPS(true);
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation, // Cần chính xác cao nhất có thể để lưu db
-        timeout: 1000, // Thêm timeout 1 giây
+        timeout: 5000, // Thêm timeout 1 giây
       });
 
       // Tạo dữ liệu chuyến đi
@@ -233,20 +242,28 @@ const HomeScreen = () => {
       const result = await createTripByVehicle(data);
 
       if (result) {
-        Alert.alert("Thành công", "Đã tạo chuyến đi!");
         // Gọi API và set lại activeTrip
         fetchActiveTrip();
-        // Lấy lại vị trí ngay tức thì (Tránh lỗi giao diện)
-        requestAndGetLocation();
+        // Cập nhật lại vị trí ngay tức thì
+        const userRegion = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.005,
+        };
+        setCurrentLocation(userRegion);
+        // Gán hiệu ứng cho mapRef để bản đồ bay tới vị trí start trip
+        mapRef.current?.animateToRegion(userRegion, 1000);
+        Alert.alert("Thành công", "Đã tạo chuyến đi!");
       } else {
         Alert.alert("Lỗi", "Không thể tạo chuyến đi. Vui lòng thử lại.");
       }
     } catch (error) {
       console.error("Lỗi khi tạo chuyến đi:", error);
       Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn.");
+    } finally {
+      setIsLoadingGPS(false);
     }
-
-    bottomSheetRef.current?.snapToIndex(0);
   };
 
   // Hàm lấy vị trí của người dùng liên tục + chạy nền
@@ -255,29 +272,61 @@ const HomeScreen = () => {
 
     if (status !== "granted") {
       Alert.alert("Lỗi", "Quyền truy cập vị trí đã bị từ chối.");
+      setIsGPSBackground(false);
       return;
     }
+    // Đã nhận được GPS background -> Ẩn banner đi
+    setIsGPSBackground(true);
     const locationSubscription = await Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000, // 1 giây
-        distanceInterval: 10, // 10 mét
+        accuracy: Location.Accuracy.High,
+        // timeInterval: 1000, // 1 giây
+        distanceInterval: 50, // 10 mét
       },
-      (newLocation) => {
-        // Hàm này được gọi liên tục với vị trí mới
+      // Ghi lại hành trình chuyến đi
+      async (newLocation) => {
+        console.log(newLocation);
+
+        // 1. Cập nhật UI (vị trí, đường đi, bản đồ)
         setCurrentLocation(newLocation.coords);
-        // GHI LẠI ĐƯỜNG ĐI
-        // setPath((prevPath) => [...prevPath, newLocation.coords]);
-        // Tạo vùng mới
-        const newRegion = {
+
+        const newCoord = {
           latitude: newLocation.coords.latitude,
           longitude: newLocation.coords.longitude,
+        };
+
+        setPath((prevPath) => [...prevPath, newCoord]);
+
+        const newRegion = {
+          latitude: newCoord.latitude,
+          longitude: newCoord.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.005,
         };
 
-        // Ra lệnh cho bản đồ di chuyển tới
-        mapRef.current?.animateToRegion(newRegion, 1000); // 1000ms = 1 giây
+        mapRef.current?.animateToRegion(newRegion, 1000);
+
+        // 2. Gửi dữ liệu về Backend (Tác vụ nền)
+        // MỚI: Phải kiểm tra xem activeTrip có ID không
+        if (activeTrip && activeTrip.id) {
+          try {
+            // Chuẩn bị dữ liệu gửi đi
+            const coordinateData = {
+              latitude: parseFloat(newCoord.latitude.toFixed(6)),
+              longitude: parseFloat(newCoord.longitude.toFixed(6)),
+              trip: activeTrip.id,
+            };
+
+            // Gọi API
+            // Quan trọng: Chúng ta "không await" ở đây.
+            // Đây là kiểu "Fire and Forget" (Bắn và Quên)
+            addTripCoordinate(coordinateData);
+          } catch (error) {
+            // TUYỆT ĐỐI KHÔNG Alert.alert ở đây
+            // Vì nó sẽ hiện thông báo lỗi mỗi giây nếu mất mạng
+            console.error("Lỗi khi gửi tọa độ về server:", error);
+          }
+        }
       },
     );
 
@@ -397,11 +446,11 @@ const HomeScreen = () => {
               </View>
             </Marker>
           ))}
-          {/* <Polyline
+          <Polyline
             coordinates={path} // Lấy dữ liệu từ state
             strokeColor={COLORS.primary} // Màu của đường
             strokeWidth={6} // Độ dày
-          /> */}
+          />
         </MapView>
         {/* Search Bar */}
         <SafeAreaView style={styles.floatingContainer}>
@@ -419,7 +468,8 @@ const HomeScreen = () => {
 
           <View style={styles.controlsContainer}>
             {/* 3. Banner thông báo chạy nền (Bên trái) */}
-            {activeTrip && (
+            {/* Nếu đang có chuyến đi & Chưa cấp quyền GPS background */}
+            {activeTrip && !isGPSBackground && (
               <TouchableOpacity
                 style={styles.bgPermissionBanner}
                 onPress={handleRequestBackgroundPermission} // <-- Tạo hàm này
@@ -434,11 +484,8 @@ const HomeScreen = () => {
             {/* 4. Nút "Tìm tôi" (Bên phải) */}
             {/* Luôn hiển thị, nhưng đẩy sang phải */}
             <TouchableOpacity
-              style={[
-                styles.recenterButton,
-                !activeTrip && { marginLeft: "auto" }, // Tự đẩy sang phải khi banner ẩn
-              ]}
-              onPress={requestAndGetLocation}
+              style={styles.recenterButton}
+              onPress={handleFindMyLocation}
             >
               <Ionicons
                 name="locate-outline"
@@ -448,6 +495,7 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
+        {/* Biểu tượng loading giữa màn hình */}
         {isLoadingGPS && (
           <ActivityIndicator
             size="large"
@@ -569,7 +617,6 @@ const styles = StyleSheet.create({
   // --- Cảnh báo về GPS chạy nền ---
   controlsContainer: {
     flexDirection: "row", // Sắp xếp theo hàng ngang
-    justifyContent: "space-between", // Đẩy 2 item ra 2 phía
     alignItems: "center", // Căn giữa theo chiều dọc
     marginTop: 10,
   },
@@ -602,6 +649,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    //
+    marginLeft: "auto",
   },
   // Liên quan tới Bottom Sheet
   handleBar: {
