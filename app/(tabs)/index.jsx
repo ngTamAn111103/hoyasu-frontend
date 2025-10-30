@@ -153,6 +153,8 @@ const HomeScreen = () => {
   };
   // 5. Hàm gọi API lấy chuyến đi chưa kết thúc.
   const fetchActiveTrip = async () => {
+    // dọn dẹp path cũ trước khi lấy data
+    setPath([]);
     setIsLoadingActiveTrip(true);
     try {
       const data = await getActiveTrip();
@@ -164,11 +166,71 @@ const HomeScreen = () => {
       }
     } catch (error) {
       console.error("Lỗi khi lấy danh sách chuyến đi chưa kết thúc:", error);
-      setActiveTrip(null); // Đảm bảo gán null nếu có lỗi
+      setActiveTrip(null);
     } finally {
       setIsLoadingActiveTrip(false);
     }
   };
+  // UseEffect: Chỉ lắng nghe duy nhất [activeTrip]
+  useEffect(() => {
+    // XỬ LÝ KHI KHÔNG CÓ CHUYẾN ĐI (activeTrip là null)
+    if (!activeTrip) {
+      // Tắt GPS nếu nó đang chạy
+      if (locationSubscriptionRef.current) {
+        locationSubscriptionRef.current.remove();
+        locationSubscriptionRef.current = null;
+      }
+      setIsGPSBackground(false); // Ẩn banner (nếu có)
+      setPath([]); // Dọn dẹp đường vẽ
+      return; // Dừng tại đây
+    }
+
+    // --- 2. XỬ LÝ KHI CÓ CHUYẾN ĐI (activeTrip có dữ liệu) ---
+    const restorePathAndStartTracking = async () => {
+      // 2a. Khôi phục đường đi (PATH RESTORATION)
+      if (activeTrip.coordinates && activeTrip.coordinates.length > 0) {
+        // Dùng .map() để chuyển đổi mảng coordinates về đúng định dạng
+        const restoredPath = activeTrip.coordinates.map((coord) => ({
+          latitude: parseFloat(coord.latitude),
+          longitude: parseFloat(coord.longitude),
+        }));
+
+        //  Đặt lại đường đi đã lưu
+        setPath(restoredPath);
+
+        // (Tùy chọn) Di chuyển camera đến tọa độ cuối cùng
+        const lastCoord = restoredPath[restoredPath.length - 1];
+        if (lastCoord) {
+          setCurrentLocation(lastCoord); // Cập nhật vị trí marker
+          const userRegion = {
+            ...lastCoord,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA,
+          };
+          mapRef.current?.animateToRegion(userRegion, 1000);
+        }
+      }
+
+      // 2b. Kiểm tra quyền và BẮT ĐẦU THEO DÕI (để ghi tiếp)
+      const { status } = await Location.getBackgroundPermissionsAsync();
+      if (status === "granted") {
+        await startBackgroundTracking(); // Bắt đầu theo dõi VỊ TRÍ MỚI
+      } else {
+        setIsGPSBackground(false); // Hiển thị banner cảnh báo
+      }
+    };
+
+    restorePathAndStartTracking();
+
+    // --- 3. HÀM DỌN DẸP (CLEANUP) ---
+    // Hàm này sẽ chạy khi activeTrip thay đổi (ví dụ: khi kết thúc chuyến đi)
+    return () => {
+      if (locationSubscriptionRef.current) {
+        locationSubscriptionRef.current.remove();
+        locationSubscriptionRef.current = null;
+      }
+    };
+  }, [activeTrip]);
 
   // useEffect: Chỉ chạy 1 lần duy nhất
   useEffect(() => {
@@ -230,24 +292,6 @@ const HomeScreen = () => {
       fetchActiveTrip();
     }
   }, []); // Chỉ chạy 1 lần
-
-  // UseEffect: Lắng nghe
-  useEffect(() => {
-    if (activeTrip) {
-      const checkPermissionAndStart = async () => {
-        const { status } = await Location.getBackgroundPermissionsAsync();
-
-        if (status === "granted") {
-          // Dòng này sẽ được gọi ngay lập tức
-          await startBackgroundTracking();
-        } else {
-          // Dòng này sẽ chạy nếu người dùng từ chối ở handleCreateTripByVehicle
-          setIsGPSBackground(false);
-        }
-      };
-      checkPermissionAndStart();
-    }
-  }, [activeTrip]);
 
   // Handle
   // 1. Lấy vị trí khi người dùng nhấn vào nút Tìm tôi, chỉ yêu cầu 1 lần và không chạy nền
@@ -354,8 +398,10 @@ const HomeScreen = () => {
     let { status } = await Location.requestBackgroundPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert("Không thể tiếp tục chuyến đi",
-          "Chuyến đi cần quyền truy cập vị trí chạy nền để hoạt động.",);
+      Alert.alert(
+        "Không thể tiếp tục chuyến đi",
+        "Chuyến đi cần quyền truy cập vị trí chạy nền để hoạt động.",
+      );
       setIsGPSBackground(false); // Vẫn hiện banner nếu từ chối
       return;
     }
@@ -390,8 +436,8 @@ const HomeScreen = () => {
       if (result) {
         // DỌN DẸP STATE
         setActiveTrip(null);
-        setPath([]); // Xóa đường vẽ
-        setIsGPSBackground(false);
+
+        // Di chuyển camera
         const userRegion = {
           latitude: currentLocation.latitude,
           longitude: currentLocation.longitude,
